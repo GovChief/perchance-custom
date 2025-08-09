@@ -24,7 +24,7 @@ let isHideFromUser = !logDebugToMessages;
 
 // A simple log function that pushes a system message with optional text, default "Got here"
 // Stringifies non-string input safely and hides from AI, marks debug messages via customData
-function log(text = "Got here") {
+export function log(text = "Got here") {
   if (!logDebugToMessages) return;
   let content;
   try {
