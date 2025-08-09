@@ -95,7 +95,7 @@ async function processMessages(ogMessage, processors) {
  * @param {string} text - Raw input text
  * @returns {string} Preformatted text with paragraphs separated by double newlines
  */
-function preFormatForNamingMessages(text) {
+export function preFormatForNamingMessages(text) {
   const segments = [];
   let cursor = 0;
   const length = text.length;
