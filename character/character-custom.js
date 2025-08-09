@@ -1,3 +1,17 @@
+async function loadCharacterCustomModule() {
+  try {
+    const imports = await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/imports.js');
+    
+    log("GitHub module loaded successfully");
+  } catch (error) {
+    console.error("Failed to load the GitHub module:", error);
+  }
+}
+
+// Call the async function to load and use the module
+loadCharacterCustomModule();
+
+
 // Config
 let numMessagesInContext = 4; // Fixed number of recent messages for context
 
@@ -24,7 +38,7 @@ let isHideFromUser = !logDebugToMessages;
 
 // A simple log function that pushes a system message with optional text, default "Got here"
 // Stringifies non-string input safely and hides from AI, marks debug messages via customData
-export function log(text = "Got here") {
+function log(text = "Got here") {
   if (!logDebugToMessages) return;
   let content;
   try {
@@ -95,7 +109,7 @@ async function processMessages(ogMessage, processors) {
  * @param {string} text - Raw input text
  * @returns {string} Preformatted text with paragraphs separated by double newlines
  */
-export function preFormatForNamingMessages(text) {
+function preFormatForNamingMessages(text) {
   const segments = [];
   let cursor = 0;
   const length = text.length;
