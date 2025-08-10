@@ -444,7 +444,7 @@ async function splitIntoNamedMessages({ messages, originalMessage, updatedMessag
 }
 
 // User command handler
-async function onUserCommand({ messages, originalMessage, updatedMessage }) {
+async function onUserCommand({ messages, originalMessage  }) {
   debug.log("onUserCommand");
   if (!originalMessage) {
     return createProcessingResult({ messages });
