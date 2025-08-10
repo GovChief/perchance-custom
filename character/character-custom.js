@@ -1,4 +1,12 @@
-// Config
+// Imports segment
+const imports = await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/imports.js');
+const debug = imports.debug;
+const messageProcessing = imports.messageProcessing;
+if (!debug || !messageProcessing) {
+  throw new Error("Failed to load required modules: debug and/or messageProcessing.");
+}
+
+// Config segment
 let numMessagesInContext = 4; // Fixed number of recent messages for context
 
 const propertiesToTrackMap = {
@@ -18,80 +26,14 @@ let userProcessingOrder = [
   onUserCommand,
 ];
 
-// Session variables
+// Session variables segment
 let lastShownData = "nothingShownYet"; // Tracks last shown summary to avoid redundant updates
 
-// Debug
+// Debug segment
 let logDebugToMessages = Boolean(oc.thread.customData?.isDebug);
 let isHideFromUser = !logDebugToMessages;
 
-// imports
-
-let debug;
-
-await loadModules();
-
-async function loadModules() {
-  try {
-    const imports = await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/imports.js');
-    await imports.importModules();
-    debug = imports.debug;
-    debug.log("GitHub module loaded successfully");
-  } catch (error) {
-    console.error("Failed to load the GitHub module:", error);
-  }
-}
-
-function createProcessingResult({ messages, stop = false, updatedMessage = null }) {
-  debug.log("createProcessingResult");
-  return {
-    messages,
-    stop,
-    updatedMessage,
-  };
-}
-
-/**
- * Runs the original message through provided processors in order.
- * Each processor receives `{ messages, originalMessage, updatedMessage }` object.
- * Messages array starts empty.
- * Returns final messages and updated message.
- */
-async function processMessages(ogMessage, processors) {
-  debug.log("processMessages");
-  let messagesArray = [];
-  let updatedMessage = ogMessage;
-
-  for (const processor of processors) {
-    const result = await processor({
-      messages: messagesArray,
-      originalMessage: ogMessage,
-      updatedMessage,
-    });
-
-    if (!result.updatedMessage) {
-      result.updatedMessage = updatedMessage;
-    }
-
-    if (result.stop) {
-      break;
-    }
-
-    messagesArray = result.messages;
-    updatedMessage = result.updatedMessage;
-  }
-
-  return { messages: messagesArray, updatedMessage };
-}
-
-/**
- * Preformats input text by splitting quoted dialogue and narration.
- * Quotes become their own paragraphs, narration remains intact exactly as input without capitalization or punctuation change.
- * Ensures no duplication of quoted text inside narration paragraphs.
- *
- * @param {string} text - Raw input text
- * @returns {string} Preformatted text with paragraphs separated by double newlines
- */
+// Utility functions segment
 function preFormatForNamingMessages(text) {
   const segments = [];
   let cursor = 0;
@@ -99,14 +41,12 @@ function preFormatForNamingMessages(text) {
 
   while (cursor < length) {
     if (text[cursor] === '"') {
-      // Find closing quote
       let endQuote = cursor + 1;
       while (endQuote < length) {
         if (text[endQuote] === '"') break;
         endQuote++;
       }
       if (endQuote >= length) {
-        // No closing quote found, treat rest as narration
         let narrationRest = text.slice(cursor).trim();
         if (narrationRest) segments.push({ text: narrationRest, quoted: false });
         cursor = length;
@@ -116,7 +56,6 @@ function preFormatForNamingMessages(text) {
         cursor = endQuote + 1;
       }
     } else {
-      // Narration up to next quote or end of text
       let nextQuote = text.indexOf('"', cursor);
       let narrationPart = nextQuote === -1 ? text.slice(cursor) : text.slice(cursor, nextQuote);
 
@@ -135,12 +74,12 @@ function preFormatForNamingMessages(text) {
   return segments.map(s => s.text).join('\n\n');
 }
 
-// AI processing functions
+// AI processing functions segment
 async function formatAndNameMessages({ messages, originalMessage, updatedMessage }) {
   debug.log("formatAndNameMessages");
 
   if (!updatedMessage || !updatedMessage.content) {
-    return createProcessingResult({ messages, updatedMessage });
+    return messageProcessing.createProcessingResult({ messages, updatedMessage });
   }
 
   function getLastNWords(str, n = 5) {
@@ -248,7 +187,7 @@ Strictly follow these instructions.
     debug.log(updatedMessage);
   }
 
-  return createProcessingResult({ messages, updatedMessage });
+  return messageProcessing.createProcessingResult({ messages, updatedMessage });
 }
 
 async function generateContextSummary({ messages, originalMessage, updatedMessage }) {
@@ -259,11 +198,11 @@ async function generateContextSummary({ messages, originalMessage, updatedMessag
   );
 
   if (visibleThreadMessages.filter(m => m.author === "ai").length < 2) {
-    return createProcessingResult({ messages, updatedMessage });
+    return messageProcessing.createProcessingResult({ messages, updatedMessage });
   }
 
   if (!updatedMessage || updatedMessage.author !== "ai") {
-    return createProcessingResult({ messages, updatedMessage });
+    return messageProcessing.createProcessingResult({ messages, updatedMessage });
   }
 
   let summarySystemMessage = oc.thread.messages.findLast(
@@ -365,7 +304,7 @@ ${propertiesPromptLines}
   }
   oc.thread.messages.push(summarySystemMessage);
 
-  return createProcessingResult({ messages, updatedMessage });
+  return messageProcessing.createProcessingResult({ messages, updatedMessage });
 }
 
 async function splitIntoNamedMessages({ messages, originalMessage, updatedMessage }) {
@@ -440,14 +379,14 @@ async function splitIntoNamedMessages({ messages, originalMessage, updatedMessag
   }
   const resultMessages = Array.from(uniqueMessagesSet);
 
-  return createProcessingResult({ messages: resultMessages });
+  return messageProcessing.createProcessingResult({ messages: resultMessages });
 }
 
-// User command handler
-async function onUserCommand({ messages, originalMessage }) {
+// User command handler segment
+async function onUserCommand({ messages, originalMessage, updatedMessage }) {
   debug.log("onUserCommand");
   if (!originalMessage) {
-    return createProcessingResult({ messages });
+    return messageProcessing.createProcessingResult({ messages });
   }
 
   let content = originalMessage.content.trim();
@@ -455,7 +394,7 @@ async function onUserCommand({ messages, originalMessage }) {
   if (content.startsWith("/info")) {
     oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/info"));
     showContextSummary();
-    return createProcessingResult({ messages, stop: true });
+    return messageProcessing.createProcessingResult({ messages, stop: true });
   }
 
   if (content.startsWith("/resetSession")) {
@@ -466,13 +405,13 @@ async function onUserCommand({ messages, originalMessage }) {
     updateContextSummaryWin();
     oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/resetSession"));
     debug.log("Session reset by /resetSession command");
-    return createProcessingResult({ messages, stop: true });
+    return messageProcessing.createProcessingResult({ messages, stop: true });
   }
 
   if (content.startsWith("/clearAll")) {
     oc.thread.messages = [];
     debug.log("All messages cleared by /clearAll command");
-    return createProcessingResult({ messages, stop: true });
+    return messageProcessing.createProcessingResult({ messages, stop: true });
   }
 
   if (content.startsWith("/debug")) {
@@ -549,13 +488,13 @@ async function onUserCommand({ messages, originalMessage }) {
 
     updateContextSummaryWin();
 
-    return createProcessingResult({ messages, stop: true });
+    return messageProcessing.createProcessingResult({ messages, stop: true });
   }
 
-  return createProcessingResult({ messages });
+  return messageProcessing.createProcessingResult({ messages });
 }
 
-// Event hook
+// Event hook segment
 oc.thread.on("MessageAdded", async () => {
   try {
     const message = oc.thread.messages.at(-1);
@@ -564,9 +503,9 @@ oc.thread.on("MessageAdded", async () => {
     let processedResult = null;
 
     if (message.author === "ai") {
-      processedResult = await processMessages(message, aiProcessingOrder);
+      processedResult = await messageProcessing.processMessages(message, aiProcessingOrder);
     } else if (message.author === "user") {
-      processedResult = await processMessages(message, userProcessingOrder);
+      processedResult = await messageProcessing.processMessages(message, userProcessingOrder);
     }
 
     if (processedResult && Array.isArray(processedResult.messages)) {
@@ -585,7 +524,7 @@ oc.thread.on("MessageAdded", async () => {
   }
 });
 
-// UI
+// UI segment
 function showContextSummary() {
   debug.log("showContextSummary");
   oc.window.show();
