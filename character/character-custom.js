@@ -1,11 +1,3 @@
-// Imports segment
-const imports = await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/imports.js');
-const debug = imports.debug;
-const messageProcessing = imports.messageProcessing;
-if (!debug || !messageProcessing) {
-  throw new Error("Failed to load required modules: debug and/or messageProcessing.");
-}
-
 // CustomData grouping
 window.customData = window.customData || {};
 window.customData.config = {
@@ -34,6 +26,14 @@ window.customData.debug = {
   logDebugToMessages: Boolean(oc.thread.customData?.isDebug),
   isHideFromUser: !Boolean(oc.thread.customData?.isDebug),
 };
+
+// Imports segment
+const imports = await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/imports.js');
+const debug = imports.debug;
+const messageProcessing = imports.messageProcessing;
+if (!debug || !messageProcessing) {
+  throw new Error("Failed to load required modules: debug and/or messageProcessing.");
+}
 
 // Assign objects to local variables for convenience
 const config = window.customData.config;
