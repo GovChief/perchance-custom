@@ -1,41 +1,24 @@
-const repoPath = 'https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character';
-const debug = await import(`${repoPath}/debug/debug.js`);
-if (!debug) {
-  throw new Error("Failed to load required module: debug.");
-}
+// Message processing utilities
 
-export function createProcessingResult({ messages, stop = false, updatedMessage = null }) {
-  debug.log("createProcessingResult");
+export function createProcessingResult({ messages, updatedMessage, stop }) {
   return {
-    messages,
-    stop,
+    messages: messages ?? [],
     updatedMessage,
+    stop: !!stop,
   };
 }
 
-export async function processMessages(ogMessage, processors) {
-  debug.log("processMessages");
-  let messagesArray = [];
-  let updatedMessage = ogMessage;
-
+// Generic processor runner
+export async function processMessages(message, processors) {
+  let messages = [message];
+  let updatedMessage = message;
   for (const processor of processors) {
-    const result = await processor({
-      messages: messagesArray,
-      originalMessage: ogMessage,
-      updatedMessage,
-    });
-
-    if (!result.updatedMessage) {
-      result.updatedMessage = updatedMessage;
+    let result = await processor({ messages, originalMessage: message, updatedMessage });
+    if (result && typeof result === 'object') {
+      messages = result.messages ?? messages;
+      updatedMessage = result.updatedMessage ?? updatedMessage;
+      if (result.stop) break;
     }
-
-    if (result.stop) {
-      break;
-    }
-
-    messagesArray = result.messages;
-    updatedMessage = result.updatedMessage;
   }
-
-  return { messages: messagesArray, updatedMessage };
+  return { messages, updatedMessage };
 }
