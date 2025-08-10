@@ -4,8 +4,9 @@ if (!debug) {
   throw new Error("Failed to load required module: debug.");
 }
 
+// Log the name of the function when it's called
 export function createProcessingResult({ messages, stop = false, updatedMessage = null }) {
-  debug.log("createProcessingResult");
+  debug.log("createProcessingResult called");
   return {
     messages,
     stop,
@@ -14,7 +15,7 @@ export function createProcessingResult({ messages, stop = false, updatedMessage 
 }
 
 export async function processMessages(ogMessage, processors) {
-  debug.log("processMessages");
+  debug.log("processMessages called");
   let messagesArray = [];
   let updatedMessage = ogMessage;
 

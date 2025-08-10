@@ -6,32 +6,39 @@ if (!debug || !messageProcessing) {
   throw new Error("Failed to load required modules: debug and/or messageProcessing.");
 }
 
-// Config segment
-let numMessagesInContext = 4; // Fixed number of recent messages for context
-
-const propertiesToTrackMap = {
-  Inventory: "any items currently in the player's inventory",
-  Skills: "skills that the player has",
-  Location: "player's current location",
-  Actors: "names of people player is interacting with"
+// CustomData grouping
+window.customData = window.customData || {};
+window.customData.config = {
+  numMessagesInContext: 4, // Fixed number of recent messages for context
+  propertiesToTrackMap: {
+    Inventory: "any items currently in the player's inventory",
+    Skills: "skills that the player has",
+    Location: "player's current location",
+    Actors: "names of people player is interacting with"
+  },
+  aiProcessingOrder: [
+    generateContextSummary,
+    formatAndNameMessages,
+    splitIntoNamedMessages,
+  ],
+  userProcessingOrder: [
+    onUserCommand,
+  ],
 };
 
-let aiProcessingOrder = [
-  generateContextSummary,
-  formatAndNameMessages,
-  splitIntoNamedMessages,
-];
+window.customData.session = {
+  lastShownData: "nothingShownYet", // Tracks last shown summary to avoid redundant updates
+};
 
-let userProcessingOrder = [
-  onUserCommand,
-];
+window.customData.debug = {
+  logDebugToMessages: Boolean(oc.thread.customData?.isDebug),
+  isHideFromUser: !Boolean(oc.thread.customData?.isDebug),
+};
 
-// Session variables segment
-let lastShownData = "nothingShownYet"; // Tracks last shown summary to avoid redundant updates
-
-// Debug segment
-let logDebugToMessages = Boolean(oc.thread.customData?.isDebug);
-let isHideFromUser = !logDebugToMessages;
+// Assign objects to local variables for convenience
+const config = window.customData.config;
+const session = window.customData.session;
+const debugVars = window.customData.debug;
 
 // Utility functions segment
 function preFormatForNamingMessages(text) {
@@ -96,7 +103,7 @@ async function formatAndNameMessages({ messages, originalMessage, updatedMessage
       m.author !== "system" &&
       m.author !== "user"
   );
-  const recentMessages = visibleThreadMessages.slice(-numMessagesInContext, -1);
+  const recentMessages = visibleThreadMessages.slice(-config.numMessagesInContext, -1);
   const formattedContext = recentMessages.map(m => m.content).join("\n\n");
 
   let startWith = "";
@@ -169,7 +176,7 @@ Strictly follow these instructions.
       existingHidden.add("user");
       updatedMessage.customData.hiddenFrom = [...existingHidden];
     }
-    if (isHideFromUser) {
+    if (debugVars.isHideFromUser) {
       hiddenFromSet.add("user");
     }
 
@@ -222,11 +229,11 @@ async function generateContextSummary({ messages, originalMessage, updatedMessag
     existingSummaryText = "**Player Character Details:**\n- No summary yet.";
   }
 
-  const propertiesListString = Object.keys(propertiesToTrackMap)
+  const propertiesListString = Object.keys(config.propertiesToTrackMap)
     .map(key => key.toLowerCase())
     .join("/");
 
-  const propertiesPromptLines = Object.entries(propertiesToTrackMap)
+  const propertiesPromptLines = Object.entries(config.propertiesToTrackMap)
     .map(([prop, instruction]) => ` - ${prop}: <write a comma-separated list of ${instruction}>`)
     .join("\n");
 
@@ -238,7 +245,7 @@ async function generateContextSummary({ messages, originalMessage, updatedMessag
 
 ---
 ${visibleThreadMessages
-  .slice(-numMessagesInContext, -1)
+  .slice(-config.numMessagesInContext, -1)
   .filter(m => m.author !== "system")
   .map(m => (m.author === "ai" ? `[Game_Master]: ` : `[Player]: `) + m.content)
   .join("\n\n")}
@@ -268,7 +275,7 @@ ${propertiesPromptLines}
     instruction:
       `Your task is to keep track of the Player's ${propertiesListString}/etc. based on the messages of the Player and the Game Master.\n\n` +
       questionText,
-    startWith: `**Player Character Details:**\n - ${Object.keys(propertiesToTrackMap)[0]}:`,
+    startWith: `**Player Character Details:**\n - ${Object.keys(config.propertiesToTrackMap)[0]}:`,
     stopSequences: ["\n\n"],
   });
 
@@ -281,7 +288,7 @@ ${propertiesPromptLines}
   };
 
   let extractedProperties = {};
-  for (const prop of Object.keys(propertiesToTrackMap)) {
+  for (const prop of Object.keys(config.propertiesToTrackMap)) {
     const key = prop.charAt(0).toLowerCase() + prop.slice(1);
     extractedProperties[key] = extractSection(prop, response.text);
   }
@@ -299,7 +306,7 @@ ${propertiesPromptLines}
       content: response.text,
       customData: { isSystemSummaryMessage: true },
       expectsReply: false,
-      hiddenFrom: isHideFromUser ? ["user"] : [],
+      hiddenFrom: debugVars.isHideFromUser ? ["user"] : [],
     };
   }
   oc.thread.messages.push(summarySystemMessage);
@@ -398,7 +405,7 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
   }
 
   if (content.startsWith("/resetSession")) {
-    lastShownData = "nothingShownYet";
+    session.lastShownData = "nothingShownYet";
     if (oc.thread.customData) {
       delete oc.thread.customData.contextSummary;
     }
@@ -415,7 +422,7 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
   }
 
   if (content.startsWith("/debug")) {
-    logDebugToMessages = true;
+    debugVars.logDebugToMessages = true;
 
     oc.thread.customData = oc.thread.customData || {};
     let isCurrentlyDebug = oc.thread.customData.isDebug === true;
@@ -481,8 +488,8 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
     }
 
     const isDebug = Boolean(oc.thread.customData.isDebug);
-    logDebugToMessages = isDebug;
-    isHideFromUser = !isDebug;
+    debugVars.logDebugToMessages = isDebug;
+    debugVars.isHideFromUser = !isDebug;
 
     oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/debug"));
 
@@ -503,9 +510,9 @@ oc.thread.on("MessageAdded", async () => {
     let processedResult = null;
 
     if (message.author === "ai") {
-      processedResult = await messageProcessing.processMessages(message, aiProcessingOrder);
+      processedResult = await messageProcessing.processMessages(message, config.aiProcessingOrder);
     } else if (message.author === "user") {
-      processedResult = await messageProcessing.processMessages(message, userProcessingOrder);
+      processedResult = await messageProcessing.processMessages(message, config.userProcessingOrder);
     }
 
     if (processedResult && Array.isArray(processedResult.messages)) {
@@ -537,7 +544,7 @@ function updateContextSummaryWin() {
       ? JSON.stringify(oc.thread.customData.contextSummary)
       : null;
 
-  if (lastShownData !== "nothingShownYet" && currentSummaryJSON === lastShownData) {
+  if (session.lastShownData !== "nothingShownYet" && currentSummaryJSON === session.lastShownData) {
     return;
   }
 
@@ -554,7 +561,7 @@ function updateContextSummaryWin() {
     !oc.thread.customData.contextSummary ||
     Object.keys(oc.thread.customData.contextSummary).length === 0
   ) {
-    lastShownData = "nothingShownYet";
+    session.lastShownData = "nothingShownYet";
 
     const fallbackMessage = document.createElement("div");
     fallbackMessage.textContent = "No info yet. Start playing.";
@@ -591,7 +598,7 @@ function updateContextSummaryWin() {
     container.appendChild(propertyDiv);
   }
 
-  lastShownData = currentSummaryJSON;
+  session.lastShownData = currentSummaryJSON;
 }
 
 function init() {
