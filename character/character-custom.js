@@ -1,17 +1,3 @@
-async function loadCharacterCustomModule() {
-  try {
-    const imports = await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/imports.js');
-    
-    log("GitHub module loaded successfully");
-  } catch (error) {
-    console.error("Failed to load the GitHub module:", error);
-  }
-}
-
-// Call the async function to load and use the module
-loadCharacterCustomModule();
-
-
 // Config
 let numMessagesInContext = 4; // Fixed number of recent messages for context
 
@@ -24,7 +10,7 @@ const propertiesToTrackMap = {
 
 let aiProcessingOrder = [
   generateContextSummary,
-  formatAndNameMessages, // Use the new processor here instead of fitMessageToForm
+  formatAndNameMessages,
   splitIntoNamedMessages,
 ];
 
@@ -32,35 +18,32 @@ let userProcessingOrder = [
   onUserCommand,
 ];
 
+// Session variables
+let lastShownData = "nothingShownYet"; // Tracks last shown summary to avoid redundant updates
+
 // Debug
 let logDebugToMessages = Boolean(oc.thread.customData?.isDebug);
 let isHideFromUser = !logDebugToMessages;
 
-// A simple log function that pushes a system message with optional text, default "Got here"
-// Stringifies non-string input safely and hides from AI, marks debug messages via customData
-function log(text = "Got here") {
-  if (!logDebugToMessages) return;
-  let content;
+// imports
+
+let debug;
+
+await loadModules();
+
+async function loadModules() {
   try {
-    content = typeof text === "string" ? text : JSON.stringify(text, null, 2);
-  } catch {
-    content = String(text);
+    const imports = await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/imports.js');
+    await imports.importModules();
+    debug = imports.debug;
+    debug.log("GitHub module loaded successfully");
+  } catch (error) {
+    console.error("Failed to load the GitHub module:", error);
   }
-  oc.thread.messages.push({
-    author: "system",
-    name: "DEBUG",
-    content,
-    hiddenFrom: ["ai"], // Hide debug logs from AI
-    customData: { debug: true, hiddenFrom: ["ai"] }, // Mark debug messages and store original hiddenFrom
-  });
 }
 
-// Session variables
-let lastShownData = "nothingShownYet"; // Tracks last shown summary to avoid redundant updates
-
-// Standard processing result creator
 function createProcessingResult({ messages, stop = false, updatedMessage = null }) {
-  log("createProcessingResult");
+  debug.log("createProcessingResult");
   return {
     messages,
     stop,
@@ -75,7 +58,7 @@ function createProcessingResult({ messages, stop = false, updatedMessage = null 
  * Returns final messages and updated message.
  */
 async function processMessages(ogMessage, processors) {
-  log("processMessages");
+  debug.log("processMessages");
   let messagesArray = [];
   let updatedMessage = ogMessage;
 
@@ -140,46 +123,34 @@ function preFormatForNamingMessages(text) {
       narrationPart = narrationPart.trim();
 
       if (narrationPart.length > 0) {
-        // Keep narration exactly as is (no changes)
         segments.push({ text: narrationPart, quoted: false });
       }
 
       cursor = nextQuote === -1 ? length : nextQuote;
     }
 
-    // Skip trailing whitespace/newlines
     while (cursor < length && /\s/.test(text[cursor])) cursor++;
   }
 
-  // Join narration and dialogue paragraphs with double newlines
   return segments.map(s => s.text).join('\n\n');
 }
 
-/**
- * AI processor:
- * - Preformats the message content to separate dialogue and narration.
- * - Sends message and recent context to AI with explicit, strict instructions.
- * - AI only adds speaker names or temporary designations to quoted dialogue lines,
- *   without modifying narration or losing content.
- */
+// AI processing functions
 async function formatAndNameMessages({ messages, originalMessage, updatedMessage }) {
-  log("formatAndNameMessages");
+  debug.log("formatAndNameMessages");
 
   if (!updatedMessage || !updatedMessage.content) {
     return createProcessingResult({ messages, updatedMessage });
   }
 
-  // Helper: get last n words from a string safely
   function getLastNWords(str, n = 5) {
     const words = str.trim().split(/\s+/);
     if (words.length <= n) return words.join(" ");
     return words.slice(-n).join(" ");
   }
 
-  // Preformat current message content
   const preformattedContent = preFormatForNamingMessages(updatedMessage.content);
 
-  // Build recent context excluding user and system messages, no speaker labels
   const visibleThreadMessages = oc.thread.messages.filter(
     m =>
       !(Array.isArray(m.hiddenFrom) && m.hiddenFrom.includes("ai")) &&
@@ -189,7 +160,6 @@ async function formatAndNameMessages({ messages, originalMessage, updatedMessage
   const recentMessages = visibleThreadMessages.slice(-numMessagesInContext, -1);
   const formattedContext = recentMessages.map(m => m.content).join("\n\n");
 
-  // Compute startWith parameter: first up to 5 words or fewer before quote char
   let startWith = "";
   if (!preformattedContent.trim().startsWith('"')) {
     const wordRegex = /(\S+)/g;
@@ -202,7 +172,6 @@ async function formatAndNameMessages({ messages, originalMessage, updatedMessage
     startWith = words.join(" ");
   }
 
-  // Updated AI instruction message as requested
   const instructionText = `
 You are a formatting assistant.
 
@@ -228,9 +197,8 @@ Absolute rules:
 - If the actor introduces itself assign that name.
 
 Strictly follow these instructions.
-`.trim();
+  `.trim();
 
-  // Send request to AI
   let response = await oc.getInstructCompletion({
     instruction: instructionText,
     startWith: startWith || undefined,
@@ -239,7 +207,6 @@ Strictly follow these instructions.
   if (response && response.text && response.text.trim()) {
     let content = response.text.trim();
 
-    // Strip wrapping single quotes if present
     if (
       content.startsWith("'") &&
       content.endsWith("'") &&
@@ -248,16 +215,13 @@ Strictly follow these instructions.
       content = content.substring(1, content.length - 1).trim();
     }
 
-    // Trim AI response to end exactly at the end of formattedContent snippet if present
     const endingSnippet = getLastNWords(preformattedContent, 5);
     const idx = content.lastIndexOf(endingSnippet);
 
     if (idx !== -1) {
       content = content.slice(0, idx + endingSnippet.length).trim();
     }
-    // If idx === -1, keep content as-is (no trimming)
 
-    // Maintain hiddenFrom flags and customData
     let hiddenFromSet = new Set(updatedMessage.hiddenFrom || []);
     if (hiddenFromSet.has("user")) {
       hiddenFromSet.delete("user");
@@ -280,18 +244,15 @@ Strictly follow these instructions.
       },
     };
 
-    log("Message preformatted and strictly labeled by formatAndNameMessages");
-    log(updatedMessage);
+    debug.log("Message preformatted and strictly labeled by formatAndNameMessages");
+    debug.log(updatedMessage);
   }
 
   return createProcessingResult({ messages, updatedMessage });
 }
 
-/**
- * Generates or updates the player context summary in oc.thread.customData.contextSummary.
- */
 async function generateContextSummary({ messages, originalMessage, updatedMessage }) {
-  log("generateContextSummary");
+  debug.log("generateContextSummary");
 
   const visibleThreadMessages = oc.thread.messages.filter(
     m => !(Array.isArray(m.hiddenFrom) && m.hiddenFrom.includes("ai"))
@@ -330,9 +291,9 @@ async function generateContextSummary({ messages, originalMessage, updatedMessag
     .map(([prop, instruction]) => ` - ${prop}: <write a comma-separated list of ${instruction}>`)
     .join("\n");
 
-  log("est " + existingSummaryText);
-  log("pls " + propertiesListString);
-  log("ppl " + propertiesPromptLines);
+  debug.log("est " + existingSummaryText);
+  debug.log("pls " + propertiesListString);
+  debug.log("ppl " + propertiesPromptLines);
 
   let questionText = `Here's the recent chat logs of the Player who is taking actions, and the "Game Master" describing the world:
 
@@ -407,24 +368,12 @@ ${propertiesPromptLines}
   return createProcessingResult({ messages, updatedMessage });
 }
 
-/**
- * Splits messages into lines and extracts dialog name/content from each.
- * Assigns "unknown character" if dialog name is empty.
- * Assigns " " (space) for non-dialogue lines.
- * Merges consecutive entries with name === " " by concatenating contents with a space.
- *
- * Also sets:
- * - customData.hideMessageInfo = true for non-dialogue lines (name === " ")
- * - customData.hideMessageButtons = true for dialog lines with assigned speaker name (except "unknown character")
- * - Does NOT set hideMessageInfo if name === "unknown character"
- */
 async function splitIntoNamedMessages({ messages, originalMessage, updatedMessage }) {
-  log("splitIntoNamedMessages");
+  debug.log("splitIntoNamedMessages");
   const inputMessages = messages && messages.length > 0 ? messages : [updatedMessage];
 
   let allParsedEntries = [];
 
-  // Step 1. Parse lines into entries with assigned names
   for (const msg of inputMessages) {
     if (!msg?.content) continue;
 
@@ -446,17 +395,14 @@ async function splitIntoNamedMessages({ messages, originalMessage, updatedMessag
 
         if (!newName) {
           newName = "unknown character";
-          // Do NOT hide message info for unknown character
         } else {
-          // Valid speaker name assigned (not empty, not unknown character)
           hideMessageButtons = true;
         }
 
         newContent = dialogMatch[2].trim();
       } else {
-        // Non-dialogue lines get name " "
         newName = " ";
-        hideMessageInfo = true; // Hide info for narration lines only
+        hideMessageInfo = true;
       }
 
       allParsedEntries.push({
@@ -474,13 +420,11 @@ async function splitIntoNamedMessages({ messages, originalMessage, updatedMessag
     }
   }
 
-  // Step 2. Merge only consecutive entries with name === " "
   const mergedEntries = [];
   for (const entry of allParsedEntries) {
     if (entry.name === " ") {
       const lastEntry = mergedEntries[mergedEntries.length - 1];
       if (lastEntry && lastEntry.name === " ") {
-        // Merge content with space separator
         lastEntry.content += " " + entry.content;
       } else {
         mergedEntries.push({ ...entry });
@@ -490,7 +434,6 @@ async function splitIntoNamedMessages({ messages, originalMessage, updatedMessag
     }
   }
 
-  // Step 3. Remove duplicates by combining with existing messages array
   const uniqueMessagesSet = new Set(messages || []);
   for (const entry of mergedEntries) {
     uniqueMessagesSet.add(entry);
@@ -500,9 +443,9 @@ async function splitIntoNamedMessages({ messages, originalMessage, updatedMessag
   return createProcessingResult({ messages: resultMessages });
 }
 
-// User command processor
+// User command handler
 async function onUserCommand({ messages, originalMessage }) {
-  log("onUserCommand");
+  debug.log("onUserCommand");
   if (!originalMessage) {
     return createProcessingResult({ messages });
   }
@@ -522,13 +465,13 @@ async function onUserCommand({ messages, originalMessage }) {
     }
     updateContextSummaryWin();
     oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/resetSession"));
-    log("Session reset by /resetSession command");
+    debug.log("Session reset by /resetSession command");
     return createProcessingResult({ messages, stop: true });
   }
 
   if (content.startsWith("/clearAll")) {
     oc.thread.messages = [];
-    log("All messages cleared by /clearAll command");
+    debug.log("All messages cleared by /clearAll command");
     return createProcessingResult({ messages, stop: true });
   }
 
@@ -539,13 +482,13 @@ async function onUserCommand({ messages, originalMessage }) {
     let isCurrentlyDebug = oc.thread.customData.isDebug === true;
 
     if (!isCurrentlyDebug) {
-      
+
       if (!oc.thread.customData) {
         oc.thread.customData = {};
       }
 
       oc.thread.customData.shortcutsButtons = oc.thread.shortcutButtons || undefined;
-      
+
       oc.thread.customData.isDebug = true;
       let userCommands = ["/info", "/resetSession", "/clearAll", "/debug"];
       oc.thread.shortcutButtons = userCommands.map(cmd => ({
@@ -574,7 +517,7 @@ async function onUserCommand({ messages, originalMessage }) {
         }
       });
 
-      log("Debug mode enabled");
+      debug.log("Debug mode enabled");
     } else {
       oc.thread.customData.isDebug = false;
 
@@ -595,7 +538,7 @@ async function onUserCommand({ messages, originalMessage }) {
         m => !(m.customData?.debug === true)
       );
 
-      log("Debug mode disabled");
+      debug.log("Debug mode disabled");
     }
 
     const isDebug = Boolean(oc.thread.customData.isDebug);
@@ -612,7 +555,7 @@ async function onUserCommand({ messages, originalMessage }) {
   return createProcessingResult({ messages });
 }
 
-// Event handler for added messages
+// Event hook
 oc.thread.on("MessageAdded", async () => {
   try {
     const message = oc.thread.messages.at(-1);
@@ -642,8 +585,9 @@ oc.thread.on("MessageAdded", async () => {
   }
 });
 
+// UI
 function showContextSummary() {
-  log("showContextSummary");
+  debug.log("showContextSummary");
   oc.window.show();
   updateContextSummaryWin();
 }
@@ -712,7 +656,7 @@ function updateContextSummaryWin() {
 }
 
 function init() {
-  log("init");
+  debug.log("init");
   document.body.innerHTML = contextSummaryWin;
   showContextSummary();
 }
