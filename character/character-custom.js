@@ -31,8 +31,9 @@ window.customData.debug = {
 const imports = await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/imports.js');
 const debug = imports.debug;
 const messageProcessing = imports.messageProcessing;
-if (!debug || !messageProcessing) {
-  throw new Error("Failed to load required modules: debug and/or messageProcessing.");
+const html = imports.html;
+if (!debug || !messageProcessing || !html) {
+  throw new Error("Failed to load required modules: debug, messageProcessing and/or html.");
 }
 
 // Assign objects to local variables for convenience
@@ -539,22 +540,7 @@ function showContextSummary() {
 }
 
 function updateContextSummaryWin() {
-  const currentSummaryJSON =
-    oc.thread.customData && oc.thread.customData.contextSummary
-      ? JSON.stringify(oc.thread.customData.contextSummary)
-      : null;
-
-  if (session.lastShownData !== "nothingShownYet" && currentSummaryJSON === session.lastShownData) {
-    return;
-  }
-
-  const container = document.getElementById("contextSummaryContent");
-  if (!container) {
-    console.error("Container element #contextSummaryContent not found.");
-    return;
-  }
-
-  container.innerHTML = "";
+  let contentHTML = "";
 
   if (
     !oc.thread.customData ||
@@ -562,65 +548,40 @@ function updateContextSummaryWin() {
     Object.keys(oc.thread.customData.contextSummary).length === 0
   ) {
     session.lastShownData = "nothingShownYet";
-
-    const fallbackMessage = document.createElement("div");
-    fallbackMessage.textContent = "No info yet. Start playing.";
-    fallbackMessage.style.fontSize = "1.1em";
-    fallbackMessage.style.color = "#666";
-    fallbackMessage.style.textAlign = "center";
-    fallbackMessage.style.marginTop = "20px";
-
-    container.appendChild(fallbackMessage);
-    return;
+    contentHTML = html.text({
+      title: "Nothing to show",
+      message: "Start playing to see information",
+      align: "center"
+    });
+  } else {
+    const summary = oc.thread.customData.contextSummary;
+    for (const [title, description] of Object.entries(summary)) {
+      contentHTML += html.textBox({
+        title,
+        description
+      });
+    }
+    session.lastShownData = JSON.stringify(summary);
   }
 
-  const summary = oc.thread.customData.contextSummary;
-
-  for (const [key, value] of Object.entries(summary)) {
-    const propertyDiv = document.createElement("div");
-    propertyDiv.style.marginBottom = "12px";
-
-    const titleElem = document.createElement("h3");
-    titleElem.textContent = key.charAt(0).toUpperCase() + key.slice(1);
-    titleElem.style.margin = "0 0 4px 0";
-    titleElem.style.fontWeight = "bold";
-
-    const contentElem = document.createElement("div");
-    contentElem.textContent = value || "(none)";
-    contentElem.style.border = "1px solid black";
-    contentElem.style.padding = "6px 10px";
-    contentElem.style.borderRadius = "3px";
-    contentElem.style.whiteSpace = "pre-wrap";
-
-    propertyDiv.appendChild(titleElem);
-    propertyDiv.appendChild(contentElem);
-
-    container.appendChild(propertyDiv);
-  }
-
-  session.lastShownData = currentSummaryJSON;
+  document.body.innerHTML = html.mainPanel({
+    title: "Stats",
+    content: contentHTML
+  });
 }
 
 function init() {
   debug.log("init");
-  document.body.innerHTML = contextSummaryWin;
+  const initialContent = html.text({
+    title: "Nothing to show",
+    message: "Start playing to see information",
+    align: "center"
+  });
+  document.body.innerHTML = html.mainPanel({
+    title: "Stats",
+    content: initialContent
+  });
   showContextSummary();
 }
-
-const contextSummaryWin = `
-  <div style="position: relative; width: 100%; height: 100%; font-family: sans-serif; display: flex; flex-direction: column;">
-    <div style="flex: 0 0 auto; padding: 10px 20px; background: #333; color: white; font-weight: bold; font-size: 1.2em; display: flex; justify-content: space-between; align-items: center;">
-      <div>Info</div>
-      <button
-        style="background: transparent; border: none; color: white; font-size: 1.2em; cursor: pointer;"
-        aria-label="Close Info Window"
-        onclick="oc.window.hide()"
-      >❌</button>
-    </div>
-    <div id="contextSummaryContent" style="flex: 1 1 auto; padding: 20px; overflow-y: auto;">
-      <!-- Content will be filled here dynamically -->
-    </div>
-  </div>
-`;
 
 init();
