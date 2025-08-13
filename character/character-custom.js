@@ -399,8 +399,8 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
 
   let content = originalMessage.content.trim();
 
-  if (content.startsWith("/info")) {
-    oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/info"));
+  if (content.startsWith("/stats")) {
+    oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/stats"));
     ui.showStatsScreen();
     return messageProcessing.createProcessingResult({ messages, stop: true });
   }
@@ -437,7 +437,7 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
       oc.thread.customData.shortcutsButtons = oc.thread.shortcutButtons || undefined;
 
       oc.thread.customData.isDebug = true;
-      let userCommands = ["/info", "/resetSession", "/clearAll", "/debug"];
+      let userCommands = ["/stats", "/resetSession", "/clearAll", "/debug"];
       oc.thread.shortcutButtons = userCommands.map(cmd => ({
         autoSend: true,
         insertionType: "replace",
