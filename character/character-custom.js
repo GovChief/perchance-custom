@@ -31,9 +31,9 @@ window.customData.debug = {
 const imports = await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/imports.js');
 const debug = imports.debug;
 const messageProcessing = imports.messageProcessing;
-const html = imports.html;
-if (!debug || !messageProcessing || !html) {
-  throw new Error("Failed to load required modules: debug, messageProcessing and/or html.");
+const ui = imports.ui; // UI functions imported from imports.js
+if (!debug || !messageProcessing || !ui) {
+  throw new Error("Failed to load required modules: debug, messageProcessing or ui.");
 }
 
 // Assign objects to local variables for convenience
@@ -296,7 +296,7 @@ ${propertiesPromptLines}
 
   oc.thread.customData.contextSummary = extractedProperties;
 
-  updateContextSummaryWin();
+  ui.refresh();
 
   if (summarySystemMessage) {
     summarySystemMessage.content = response.text;
@@ -401,7 +401,7 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
 
   if (content.startsWith("/info")) {
     oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/info"));
-    showContextSummary();
+    ui.showStatsScreen();
     return messageProcessing.createProcessingResult({ messages, stop: true });
   }
 
@@ -410,7 +410,7 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
     if (oc.thread.customData) {
       delete oc.thread.customData.contextSummary;
     }
-    updateContextSummaryWin();
+    ui.refresh();
     oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/resetSession"));
     debug.log("Session reset by /resetSession command");
     return messageProcessing.createProcessingResult({ messages, stop: true });
@@ -494,7 +494,7 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
 
     oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/debug"));
 
-    updateContextSummaryWin();
+    ui.refresh();
 
     return messageProcessing.createProcessingResult({ messages, stop: true });
   }
@@ -533,55 +533,9 @@ oc.thread.on("MessageAdded", async () => {
 });
 
 // UI segment
-function showContextSummary() {
-  debug.log("showContextSummary");
-  oc.window.show();
-  updateContextSummaryWin();
-}
-
-function updateContextSummaryWin() {
-  let contentHTML = "";
-
-  if (
-    !oc.thread.customData ||
-    !oc.thread.customData.contextSummary ||
-    Object.keys(oc.thread.customData.contextSummary).length === 0
-  ) {
-    session.lastShownData = "nothingShownYet";
-    contentHTML = html.text({
-      title: "Nothing to show",
-      message: "Start playing to see information",
-      align: "center"
-    });
-  } else {
-    const summary = oc.thread.customData.contextSummary;
-    for (const [title, description] of Object.entries(summary)) {
-      contentHTML += html.textBox({
-        title,
-        description
-      });
-    }
-    session.lastShownData = JSON.stringify(summary);
-  }
-
-  document.body.innerHTML = html.mainPanel({
-    title: "Stats",
-    content: contentHTML
-  });
-}
-
 function init() {
   debug.log("init");
-  const initialContent = html.text({
-    title: "Nothing to show",
-    message: "Start playing to see information",
-    align: "center"
-  });
-  document.body.innerHTML = html.mainPanel({
-    title: "Stats",
-    content: initialContent
-  });
-  showContextSummary();
+  ui.refresh();
 }
 
 init();
