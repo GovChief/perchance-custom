@@ -1,3 +1,5 @@
+const repoPath = 'https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character';
+
 // CustomData grouping
 window.customData = window.customData || {};
 window.customData.config = {
@@ -28,12 +30,32 @@ window.customData.debug = {
 };
 
 // Imports segment
-const imports = await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/imports.js');
-const debug = imports.debug;
-const messageProcessing = imports.messageProcessing;
-const ui = imports.ui; // UI functions imported from imports.js
-if (!debug || !messageProcessing || !ui) {
-  throw new Error("Failed to load required modules: debug, messageProcessing or ui.");
+let imports, debug, messageProcessing, ui;
+try {
+  imports = await import(`${repoPath}/imports.js`);
+  let failedModules = [];
+  if (!imports) {
+    failedModules.push('imports');
+  } else {
+    debug = imports.debug;
+    messageProcessing = imports.messageProcessing;
+    ui = imports.ui; // UI functions imported from imports.js
+    if (!debug) failedModules.push('debug');
+    if (!messageProcessing) failedModules.push('messageProcessing');
+    if (!ui) failedModules.push('ui');
+  }
+  if (failedModules.length > 0) {
+    throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
+  }
+} catch (error) {
+  oc.thread.messages.push({
+    author: "FAILED INIT",
+    content: "Failed to initialise imports: " + error.message,
+    customData: { debug: true },
+    expectsReply: false,
+    hiddenFrom: ["ai"],
+  });
+  // No throw or console.log here
 }
 
 // Assign objects to local variables for convenience
