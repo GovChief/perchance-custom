@@ -1,9 +1,24 @@
-const html = await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/ui/html.js');
-const debug = await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/debug/debug.js');
+const repoPath = 'https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character';
 
-// Check imports
-if (!html || !debug) {
-  throw new Error("Failed to load required modules: html or debug.");
+let html, debug;
+let failedModules = [];
+
+try {
+  html = await import(`${repoPath}/ui/html.js`);
+  if (!html) failedModules.push('html');
+} catch (e) {
+  failedModules.push('html');
+}
+
+try {
+  debug = await import(`${repoPath}/debug/debug.js`);
+  if (!debug) failedModules.push('debug');
+} catch (e) {
+  failedModules.push('debug');
+}
+
+if (failedModules.length > 0) {
+  throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
 }
 
 const statsScreen = "statsScreen";

@@ -1,7 +1,16 @@
 const repoPath = 'https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character';
-const debug = await import(`${repoPath}/debug/debug.js`);
-if (!debug) {
-  throw new Error("Failed to load required module: debug.");
+let debug;
+let failedModules = [];
+
+try {
+  debug = await import(`${repoPath}/debug/debug.js`);
+  if (!debug) failedModules.push('debug');
+} catch (e) {
+  failedModules.push('debug');
+}
+
+if (failedModules.length > 0) {
+  throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
 }
 
 // Log the name of the function when it's called
