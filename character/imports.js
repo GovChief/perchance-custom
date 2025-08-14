@@ -1,11 +1,31 @@
 const repoPath = 'https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character';
 
-const debug = await import(`${repoPath}/debug/debug.js`);
-const messageProcessing = await import(`${repoPath}/processing/messageProcessing.js`);
-const ui = await import(`${repoPath}/ui/ui.js`);
+let debug, messageProcessing, ui;
+let failedModules = [];
 
-if (!debug || !messageProcessing || !ui) {
-  throw new Error("Failed to load required modules: debug, messageProcessing or ui.");
+try {
+  debug = await import(`${repoPath}/debug/debug.js`);
+  if (!debug) failedModules.push('debug');
+} catch (e) {
+  failedModules.push('debug');
+}
+
+try {
+  messageProcessing = await import(`${repoPath}/processing/messageProcessing.js`);
+  if (!messageProcessing) failedModules.push('messageProcessing');
+} catch (e) {
+  failedModules.push('messageProcessing');
+}
+
+try {
+  ui = await import(`${repoPath}/ui/ui.js`);
+  if (!ui) failedModules.push('ui');
+} catch (e) {
+  failedModules.push('ui');
+}
+
+if (failedModules.length > 0) {
+  throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
 }
 
 export { debug, messageProcessing, ui };
