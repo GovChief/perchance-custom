@@ -1,6 +1,6 @@
 const repoPath = 'https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character';
 
-let html, debug;
+let html, debug, threadData;
 let failedModules = [];
 
 try {
@@ -17,28 +17,23 @@ try {
   failedModules.push('debug');
 }
 
+try {
+  const globals = await import(`${repoPath}/globals.js`);
+  if (!globals) {
+    failedModules.push('globals');
+  } else {
+    threadData = globals.threadData;
+  }
+} catch (e) {
+  failedModules.push('globals');
+}
+
 if (failedModules.length > 0) {
-  throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
+  throw new Error("Failed to load required modules: " + failedModules.join(', ") + ".");
 }
 
 const statsScreen = "statsScreen";
 const backstack = [];
-
-function getGlobals() {
-  if (!window.customData) window.customData = {};
-  const windowData = window.customData;
-
-  if (!windowData.debug) windowData.debug = {};
-  const debugData = windowData.debug;
-
-  const thread = oc.thread;
-  if (!thread.customData) thread.customData = {};
-  const threadData = thread.customData;
-
-  return { windowData, debugData, threadData };
-}
-
-const { windowData, debugData, threadData } = getGlobals();
 
 function setPanelContent({ title, content }) {
   document.body.innerHTML = html.mainPanel({
