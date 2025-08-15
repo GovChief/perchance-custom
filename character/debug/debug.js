@@ -1,26 +1,38 @@
-// Simple debug logger for Perchance Custom
+const repoPath = 'https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character';
 
-// Extract debugVars at the top of the script for use by all functions
-const debugVars = (typeof window !== "undefined" && window.customData && window.customData.debug) ? window.customData.debug : {};
+let debugData;
+let globals;
+let failedModules = [];
 
-/**
- * Logs debug messages to the console and optionally to the thread messages if enabled.
- * 
- * debugVars.logDebugToMessages controls logging.
- * If enabled, debug messages are pushed to oc.thread.messages with a special customData flag.
- */
-export function log(...args) {
-  if (debugVars.logDebugToMessages) {
-    // Log to the console
+try {
+  globals = await import(`${repoPath}/globals.js`);
+  if (!globals) failedModules.push('globals');
+} catch (e) {
+  failedModules.push('globals');
+}
+
+if (failedModules.length > 0) {
+  throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
+}
+
+debugData = globals.debugData;
+
+function log(...args) {
+  if (debugData.logDebugToMessages) {
+    logToMessage(...args);
+  } else if (debugData.logDebugToConsole) {
     console.log("[DEBUG]", ...args);
-
-    // Also log to the thread messages
-    oc.thread.messages.push({
-      author: "DEBUG",
-      content: args.map(a => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" "),
-      customData: { debug: true },
-      expectsReply: false,
-      hiddenFrom: ["ai"],
-    });
   }
 }
+
+function logToMessage(...args) {
+  oc.thread.messages.push({
+    author: "DEBUG",
+    content: args.map(a => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" "),
+    customData: { debug: true },
+    expectsReply: false,
+    hiddenFrom: ["ai", "system"],
+  });
+}
+
+export { log };
