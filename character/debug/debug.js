@@ -1,12 +1,15 @@
 const repoPath = 'https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character';
 
 let debugData;
-let globals;
 let failedModules = [];
 
 try {
-  globals = await import(`${repoPath}/globals.js`);
-  if (!globals) failedModules.push('globals');
+  const globals = await import(`${repoPath}/globals.js`);
+  if (!globals) {
+    failedModules.push('globals');
+  } else {
+    debugData = globals.debugData;
+  }
 } catch (e) {
   failedModules.push('globals');
 }
@@ -14,8 +17,6 @@ try {
 if (failedModules.length > 0) {
   throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
 }
-
-debugData = globals.debugData;
 
 function log(...args) {
   if (debugData.logDebugToMessages) {
