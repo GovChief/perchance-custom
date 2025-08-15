@@ -1,8 +1,41 @@
 const repoPath = 'https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character';
 
+// Imports segment
+let imports, debug, messageProcessing, ui, globals;
+try {
+  let failedModules = [];
+  imports = await import(`${repoPath}/imports.js`);
+  if (!imports) {
+    failedModules.push('imports');
+  } else {
+    debug = imports.debug;
+    messageProcessing = imports.messageProcessing;
+    ui = imports.ui;
+
+    globals = imports.globals;
+    if (!debug) failedModules.push('debug');
+    if (!messageProcessing) failedModules.push('messageProcessing');
+    if (!ui) failedModules.push('ui');
+    if (!globals) failedModules.push('globals');
+  }
+  if (failedModules.length > 0) {
+    throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
+  }
+} catch (error) {
+  oc.thread.messages.push({
+    author: "FAILED INIT",
+    content: "Failed to initialise imports: " + error.message,
+    customData: { debug: true },
+    expectsReply: false,
+    hiddenFrom: ["ai"],
+  });
+}
+
+// Deconstruct globals after import
+const { threadData, windowData, debugData, session, config } = globals;
+
 // CustomData grouping
-window.customData = window.customData || {};
-window.customData.config = {
+Object.assign(config, {
   numMessagesInContext: 4, // Fixed number of recent messages for context
   propertiesToTrackMap: {
     Inventory: "any items currently in the player's inventory",
@@ -18,50 +51,15 @@ window.customData.config = {
   userProcessingOrder: [
     onUserCommand,
   ],
-};
+});
 
-window.customData.session = {
-  lastShownData: "nothingShownYet", // Tracks last shown summary to avoid redundant updates
-};
+// Keep session object empty but ready for future use
+Object.assign(session, {});
 
-window.customData.debug = {
-  logDebugToMessages: Boolean(oc.thread.customData?.isDebug),
-  isHideFromUser: !Boolean(oc.thread.customData?.isDebug),
-};
-
-// Imports segment
-let imports, debug, messageProcessing, ui;
-try {
-  imports = await import(`${repoPath}/imports.js`);
-  let failedModules = [];
-  if (!imports) {
-    failedModules.push('imports');
-  } else {
-    debug = imports.debug;
-    messageProcessing = imports.messageProcessing;
-    ui = imports.ui; // UI functions imported from imports.js
-    if (!debug) failedModules.push('debug');
-    if (!messageProcessing) failedModules.push('messageProcessing');
-    if (!ui) failedModules.push('ui');
-  }
-  if (failedModules.length > 0) {
-    throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
-  }
-} catch (error) {
-  oc.thread.messages.push({
-    author: "FAILED INIT",
-    content: "Failed to initialise imports: " + error.message,
-    customData: { debug: true },
-    expectsReply: false,
-    hiddenFrom: ["ai"],
-  });
-  // No throw or console.log here
-}
-
-// Assign objects to local variables for convenience
-const config = window.customData.config;
-const session = window.customData.session;
-const debugVars = window.customData.debug;
+Object.assign(debugData, {
+  logDebugToMessages: Boolean(threadData?.isDebug),
+  isHideFromUser: !Boolean(threadData?.isDebug)
+});
 
 // Utility functions segment
 function preFormatForNamingMessages(text) {
@@ -199,7 +197,7 @@ Strictly follow these instructions.
       existingHidden.add("user");
       updatedMessage.customData.hiddenFrom = [...existingHidden];
     }
-    if (debugVars.isHideFromUser) {
+    if (debugData.isHideFromUser) {
       hiddenFromSet.add("user");
     }
 
@@ -239,7 +237,7 @@ async function generateContextSummary({ messages, originalMessage, updatedMessag
     m => m.customData && m.customData.isSystemSummaryMessage
   );
 
-  const contextSummary = oc.thread.customData?.contextSummary || {};
+  const contextSummary = threadData.contextSummary || {};
 
   let existingSummaryText;
   if (Object.keys(contextSummary).length) {
@@ -302,8 +300,6 @@ ${propertiesPromptLines}
     stopSequences: ["\n\n"],
   });
 
-  if (!oc.thread.customData) oc.thread.customData = {};
-
   const extractSection = (label, text) => {
     const regex = new RegExp(`^\\s*-\\s*${label}:\\s*([^\\r\\n]*)`, "mi");
     const match = text.match(regex);
@@ -316,7 +312,7 @@ ${propertiesPromptLines}
     extractedProperties[key] = extractSection(prop, response.text);
   }
 
-  oc.thread.customData.contextSummary = extractedProperties;
+  threadData.contextSummary = extractedProperties;
 
   ui.refresh();
 
@@ -329,7 +325,7 @@ ${propertiesPromptLines}
       content: response.text,
       customData: { isSystemSummaryMessage: true },
       expectsReply: false,
-      hiddenFrom: debugVars.isHideFromUser ? ["user"] : [],
+      hiddenFrom: debugData.isHideFromUser ? ["user"] : [],
     };
   }
   oc.thread.messages.push(summarySystemMessage);
@@ -428,10 +424,7 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
   }
 
   if (content.startsWith("/resetSession")) {
-    session.lastShownData = "nothingShownYet";
-    if (oc.thread.customData) {
-      delete oc.thread.customData.contextSummary;
-    }
+    delete threadData.contextSummary;
     ui.refresh();
     oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/resetSession"));
     debug.log("Session reset by /resetSession command");
@@ -445,20 +438,15 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
   }
 
   if (content.startsWith("/debug")) {
-    debugVars.logDebugToMessages = true;
+    debugData.logDebugToMessages = true;
 
-    oc.thread.customData = oc.thread.customData || {};
-    let isCurrentlyDebug = oc.thread.customData.isDebug === true;
+    let isCurrentlyDebug = threadData.isDebug === true;
 
     if (!isCurrentlyDebug) {
 
-      if (!oc.thread.customData) {
-        oc.thread.customData = {};
-      }
+      threadData.shortcutsButtons = oc.thread.shortcutButtons || undefined;
 
-      oc.thread.customData.shortcutsButtons = oc.thread.shortcutButtons || undefined;
-
-      oc.thread.customData.isDebug = true;
+      threadData.isDebug = true;
       let userCommands = ["/stats", "/resetSession", "/clearAll", "/debug"];
       oc.thread.shortcutButtons = userCommands.map(cmd => ({
         autoSend: true,
@@ -488,10 +476,10 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
 
       debug.log("Debug mode enabled");
     } else {
-      oc.thread.customData.isDebug = false;
+      threadData.isDebug = false;
 
-      oc.thread.shortcutButtons = oc.thread.customData.shortcutsButtons || undefined;
-      delete oc.thread.customData.shortcutsButtons;
+      oc.thread.shortcutButtons = threadData.shortcutsButtons || undefined;
+      delete threadData.shortcutsButtons;
 
       oc.thread.messages.forEach(msg => {
         if (msg.customData?.debugShown === true) {
@@ -510,9 +498,9 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
       debug.log("Debug mode disabled");
     }
 
-    const isDebug = Boolean(oc.thread.customData.isDebug);
-    debugVars.logDebugToMessages = isDebug;
-    debugVars.isHideFromUser = !isDebug;
+    const isDebug = Boolean(threadData.isDebug);
+    debugData.logDebugToMessages = isDebug;
+    debugData.isHideFromUser = !isDebug;
 
     oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/debug"));
 
