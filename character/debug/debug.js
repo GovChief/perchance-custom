@@ -1,4 +1,4 @@
-const repoPath = 'https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character';
+const repoPath = oc.thread.customData.repoPath;
 
 let debugData;
 let failedModules = [];

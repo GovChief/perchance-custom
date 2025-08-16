@@ -1,4 +1,8 @@
-const repoPath = 'https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character';
+await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/versions.js').then(async ({ load }) => {
+  await load("latest_preview");
+});
+
+const repoPath = oc.thread.customData.repoPath;
 
 // Imports segment
 let imports, debug, messageProcessing, ui, globals;
