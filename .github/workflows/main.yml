@@ -21,4 +21,4 @@ jobs:
       - name: Purge jsDelivr cache for .js files in /character
         uses: egad13/purge-jsdelivr-cache@v1
         with:
-          urls: ${{ steps.build_urls.outputs.urls }}
+          url: ${{ steps.build_urls.outputs.urls }}
