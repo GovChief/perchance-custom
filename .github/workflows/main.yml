@@ -19,6 +19,6 @@ jobs:
           echo "urls=${urls}" >> $GITHUB_OUTPUT
 
       - name: Purge jsDelivr cache for .js files in /character
-        uses: jsdelivr/github-action@v1
+        uses: egad13/purge-jsdelivr-cache@v1
         with:
           urls: ${{ steps.build_urls.outputs.urls }}
