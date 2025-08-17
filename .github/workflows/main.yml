@@ -1,24 +1,42 @@
 name: jsDelivr Cache Purge
 
 on:
-  push:
+  pull_request:
     branches:
       - main
+    types:
+      - closed
 
 jobs:
   purge-jsdelivr-cache:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Find js scripts in /character
-        id: build_urls
+      - name: Get list of changed .js files in /character from PR
+        id: get_changed_js
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          urls=$(find character -type f -name "*.js" | awk '{print "https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/"$0}' | paste -sd "," -)
-          echo "urls=${urls}" >> $GITHUB_OUTPUT
+          pr_number=${{ github.event.pull_request.number }}
+          repo=${{ github.repository }}
+          files=$(gh pr view $pr_number --repo $repo --json files -q '.files[].path')
+          js_files=$(echo "$files" | grep '^character/.*\.js$' || true)
+          echo "Changed .js files in /character found in PR:"
+          echo "$js_files"
+          urls=$(echo "$js_files" | awk '{print "https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/"$0}' | paste -sd "," -)
+          echo "Generated jsDelivr URLs for changed files:"
+          echo "$urls"
+          echo "url=${urls}" >> $GITHUB_OUTPUT
+          echo "has_js_files=false" >> $GITHUB_OUTPUT
+          if [ -n "$js_files" ]; then
+            echo "has_js_files=true" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Purge jsDelivr cache for .js files in /character
+      - name: Purge jsDelivr cache for updated .js files in /character
+        if: steps.get_changed_js.outputs.has_js_files == 'true'
         uses: egad13/purge-jsdelivr-cache@v1
         with:
-          url: ${{ steps.build_urls.outputs.urls }}
+          url: ${{ steps.get_changed_js.outputs.url }}
