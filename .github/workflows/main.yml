@@ -1,0 +1,24 @@
+name: jsDelivr Cache Purge
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  purge-jsdelivr-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Find js scripts in /character
+        id: build_urls
+        run: |
+          urls=$(find character -type f -name "*.js" | awk '{print "https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/"$0}' | paste -sd "," -)
+          echo "urls=${urls}" >> $GITHUB_OUTPUT
+
+      - name: Purge jsDelivr cache for .js files in /character
+        uses: jsdelivr/github-action@v1
+        with:
+          urls: ${{ steps.build_urls.outputs.urls }}
