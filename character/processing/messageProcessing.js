@@ -7,7 +7,7 @@ try {
   debug = await import(`${repoPath}/debug/debug.js`);
   if (!debug) failedModules.push('debug');
 } catch (e) {
-  failedModules.push('debug');
+  failedModules.push('debug: ' + e.message);
 }
 
 if (failedModules.length > 0) {

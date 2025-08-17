@@ -7,14 +7,14 @@ try {
   html = await import(`${repoPath}/ui/html.js`);
   if (!html) failedModules.push('html');
 } catch (e) {
-  failedModules.push('html');
+  failedModules.push('html: ' + e.message);
 }
 
 try {
   debug = await import(`${repoPath}/debug/debug.js`);
   if (!debug) failedModules.push('debug');
 } catch (e) {
-  failedModules.push('debug');
+  failedModules.push('debug: ' + e.message);
 }
 
 try {
@@ -25,7 +25,7 @@ try {
     threadData = globals.threadData;
   }
 } catch (e) {
-  failedModules.push('globals');
+  failedModules.push('globals: ' + e.message);
 }
 
 if (failedModules.length > 0) {
