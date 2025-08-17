@@ -32,7 +32,7 @@ try {
 }
 
 if (failedModules.length > 0) {
-  throw new Error("Imports failed to load required modules: " + failedModules.join(', ') + ".");
+  throw new Error("Imports module failed to load required modules: " + failedModules.join(', ') + ".");
 }
 
 export { debug, messageProcessing, ui, globals };
