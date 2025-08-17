@@ -15,7 +15,7 @@ try {
 }
 
 if (failedModules.length > 0) {
-  throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
+  throw new Error("Debug module failed to load required modules: " + failedModules.join(', ') + ".");
 }
 
 function log(...args) {
