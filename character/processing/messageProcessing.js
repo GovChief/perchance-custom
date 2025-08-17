@@ -11,7 +11,7 @@ try {
 }
 
 if (failedModules.length > 0) {
-  throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
+  throw new Error("Message processing module failed to load required modules: " + failedModules.join(', ') + ".");
 }
 
 // Log the name of the function when it's called
