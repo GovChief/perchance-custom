@@ -11,7 +11,7 @@ try {
     debugData = globals.debugData;
   }
 } catch (e) {
-  failedModules.push('globals');
+  failedModules.push('globals: ' + e.message);
 }
 
 if (failedModules.length > 0) {
