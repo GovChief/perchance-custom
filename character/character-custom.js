@@ -169,7 +169,7 @@ Absolute rules:
 - If the actor introduces itself assign that name.
 
 Strictly follow these instructions.
-`.trim();
+  `.trim();
 
   let response = await oc.getInstructCompletion({
     instruction: instructionText,
