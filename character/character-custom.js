@@ -145,31 +145,31 @@ async function formatAndNameMessages({ messages, originalMessage, updatedMessage
   }
 
   const instructionText = `
-  You are a formatting assistant.
+You are a formatting assistant.
 
-  Recent context (only narration, no user messages):
+Recent context (only narration, no user messages):
 
-  ${formattedContext}
+${formattedContext}
 
-  Your task is to analyze the following text:
+Your task is to analyze the following text:
 
-  ${preformattedContent}
+${preformattedContent}
 
-  You MUST add the FULL speaker name AT THE START of each quoted dialogue line ONLY without changing any other text.
+You MUST add the FULL speaker name AT THE START of each quoted dialogue line ONLY without changing any other text.
 
-  Absolute rules:
-  - DO NOT add speaker names to any narration or descriptive lines (non-quoted lines).
-  - DO NOT remove, merge, split, or otherwise change any narration or descriptive text.
-  - DO NOT change any text inside quoted dialogue lines, except to add the correct speaker prefix.
-  - Dialogue lines must be of the form: Speaker Name: "Exact dialogue text."
-  - Maintain all blank lines and formatting exactly as in the input.
-  - Use the recent context above and the text itself to assign speaker names accurately.
-  - DO NOT add explanations, comments, notes, or any extra content.
-  - Return the full text correctly labeled with narration intact and dialogue lines properly prefixed.
-  - If the actor introduces itself assign that name.
+Absolute rules:
+- DO NOT add speaker names to any narration or descriptive lines (non-quoted lines).
+- DO NOT remove, merge, split, or otherwise change any narration or descriptive text.
+- DO NOT change any text inside quoted dialogue lines, except to add the correct speaker prefix.
+- Dialogue lines must be of the form: Speaker Name: "Exact dialogue text."
+- Maintain all blank lines and formatting exactly as in the input.
+- Use the recent context above and the text itself to assign speaker names accurately.
+- DO NOT add explanations, comments, notes, or any extra content.
+- Return the full text correctly labeled with narration intact and dialogue lines properly prefixed.
+- If the actor introduces itself assign that name.
 
-  Strictly follow these instructions.
-    `.trim();
+Strictly follow these instructions.
+`.trim();
 
   let response = await oc.getInstructCompletion({
     instruction: instructionText,
@@ -269,33 +269,33 @@ async function generateContextSummary({ messages, originalMessage, updatedMessag
 
   let questionText = `Here's the recent chat logs of the Player who is taking actions, and the "Game Master" describing the world:
 
-  ---
-  ${visibleThreadMessages
-    .slice(-config.numMessagesInContext, -1)
-    .filter(m => m.author !== "system")
-    .map(m => (m.author === "ai" ? `[Game_Master]: ` : `[Player]: `) + m.content)
-    .join("\n\n")}
-  ---
-  
-  Here's a summary of the player's ${propertiesListString}/etc:
+---
+${visibleThreadMessages
+  .slice(-config.numMessagesInContext, -1)
+  .filter(m => m.author !== "system")
+  .map(m => (m.author === "ai" ? `[Game_Master]: ` : `[Player]: `) + m.content)
+  .join("\n\n")}
+---
 
-  ---
-  ${existingSummaryText}
-  ---
-  
-  Update the summary based on this latest development:
+Here's a summary of the player's ${propertiesListString}/etc:
 
-  ---
-  ${updatedMessage.content}
-  ---
-  
-  If the player's data hasn't changed or if an invalid action was rejected, reply with the same summary unchanged.
-  
-  Reply only with dot points for the properties below, no extra text.
-  
-  **Player Character Details:**
-  ${propertiesPromptLines}
-  `;
+---
+${existingSummaryText}
+---
+
+Update the summary based on this latest development:
+
+---
+${updatedMessage.content}
+---
+
+If the player's data hasn't changed or if an invalid action was rejected, reply with the same summary unchanged.
+
+Reply only with dot points for the properties below, no extra text.
+
+**Player Character Details:**
+${propertiesPromptLines}
+`;
 
   let response = await oc.getInstructCompletion({
     instruction:
