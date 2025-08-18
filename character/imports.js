@@ -1,6 +1,6 @@
 const repoPath = oc.thread.customData.repoPath;
 
-let debug, messageProcessing, ui, globals;
+let debug, messageProcessing, userProcessing, ui, globals;
 let failedModules = [];
 
 try {
@@ -15,6 +15,13 @@ try {
   if (!messageProcessing) failedModules.push('messageProcessing');
 } catch (e) {
   failedModules.push('messageProcessing: ' + e.message);
+}
+
+try {
+  userProcessing = await import(`${repoPath}/processing/userProcessing.js`);
+  if (!userProcessing) failedModules.push('userProcessing');
+} catch (e) {
+  failedModules.push('userProcessing: ' + e.message);
 }
 
 try {
@@ -35,4 +42,4 @@ if (failedModules.length > 0) {
   throw new Error("Imports module failed to load required modules: " + failedModules.join(', ') + ".");
 }
 
-export { debug, messageProcessing, ui, globals };
+export { debug, messageProcessing, userProcessing, ui, globals };
