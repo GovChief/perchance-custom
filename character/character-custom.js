@@ -5,7 +5,7 @@ await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/charact
 const repoPath = oc.thread.customData.repoPath;
 
 // Imports segment
-let imports, debug, messageProcessing, ui, globals;
+let imports, debug, messageProcessing, ui, globals, userProcessing;
 try {
   let failedModules = [];
   imports = await import(`${repoPath}/imports.js`);
@@ -15,12 +15,13 @@ try {
     debug = imports.debug;
     messageProcessing = imports.messageProcessing;
     ui = imports.ui;
-
     globals = imports.globals;
+    userProcessing = await import(`${repoPath}/processing/userProcessing.js`);
     if (!debug) failedModules.push('debug');
     if (!messageProcessing) failedModules.push('messageProcessing');
     if (!ui) failedModules.push('ui');
     if (!globals) failedModules.push('globals');
+    if (!userProcessing) failedModules.push('userProcessing');
   }
   if (failedModules.length > 0) {
     throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
@@ -53,7 +54,7 @@ Object.assign(config, {
     splitIntoNamedMessages,
   ],
   userProcessingOrder: [
-    onUserCommand,
+    userProcessing.onUserCommand,
   ],
 });
 
@@ -144,31 +145,31 @@ async function formatAndNameMessages({ messages, originalMessage, updatedMessage
   }
 
   const instructionText = `
-You are a formatting assistant.
+  You are a formatting assistant.
 
-Recent context (only narration, no user messages):
+  Recent context (only narration, no user messages):
 
-${formattedContext}
+  ${formattedContext}
 
-Your task is to analyze the following text:
+  Your task is to analyze the following text:
 
-${preformattedContent}
+  ${preformattedContent}
 
-You MUST add the FULL speaker name AT THE START of each quoted dialogue line ONLY without changing any other text.
+  You MUST add the FULL speaker name AT THE START of each quoted dialogue line ONLY without changing any other text.
 
-Absolute rules:
-- DO NOT add speaker names to any narration or descriptive lines (non-quoted lines).
-- DO NOT remove, merge, split, or otherwise change any narration or descriptive text.
-- DO NOT change any text inside quoted dialogue lines, except to add the correct speaker prefix.
-- Dialogue lines must be of the form: Speaker Name: "Exact dialogue text."
-- Maintain all blank lines and formatting exactly as in the input.
-- Use the recent context above and the text itself to assign speaker names accurately.
-- DO NOT add explanations, comments, notes, or any extra content.
-- Return the full text correctly labeled with narration intact and dialogue lines properly prefixed.
-- If the actor introduces itself assign that name.
+  Absolute rules:
+  - DO NOT add speaker names to any narration or descriptive lines (non-quoted lines).
+  - DO NOT remove, merge, split, or otherwise change any narration or descriptive text.
+  - DO NOT change any text inside quoted dialogue lines, except to add the correct speaker prefix.
+  - Dialogue lines must be of the form: Speaker Name: "Exact dialogue text."
+  - Maintain all blank lines and formatting exactly as in the input.
+  - Use the recent context above and the text itself to assign speaker names accurately.
+  - DO NOT add explanations, comments, notes, or any extra content.
+  - Return the full text correctly labeled with narration intact and dialogue lines properly prefixed.
+  - If the actor introduces itself assign that name.
 
-Strictly follow these instructions.
-  `.trim();
+  Strictly follow these instructions.
+    `.trim();
 
   let response = await oc.getInstructCompletion({
     instruction: instructionText,
@@ -197,7 +198,7 @@ Strictly follow these instructions.
     if (hiddenFromSet.has("user")) {
       hiddenFromSet.delete("user");
       updatedMessage.customData = updatedMessage.customData || {};
-      let existingHidden = new Set(updatedMessage.customData.hiddenFrom || []);
+      let existingHidden = new Set(updatedMessage.customData?.hiddenFrom || []);
       existingHidden.add("user");
       updatedMessage.customData.hiddenFrom = [...existingHidden];
     }
@@ -268,33 +269,33 @@ async function generateContextSummary({ messages, originalMessage, updatedMessag
 
   let questionText = `Here's the recent chat logs of the Player who is taking actions, and the "Game Master" describing the world:
 
----
-${visibleThreadMessages
-  .slice(-config.numMessagesInContext, -1)
-  .filter(m => m.author !== "system")
-  .map(m => (m.author === "ai" ? `[Game_Master]: ` : `[Player]: `) + m.content)
-  .join("\n\n")}
----
+  ---
+  ${visibleThreadMessages
+    .slice(-config.numMessagesInContext, -1)
+    .filter(m => m.author !== "system")
+    .map(m => (m.author === "ai" ? `[Game_Master]: ` : `[Player]: `) + m.content)
+    .join("\n\n")}
+  ---
+  
+  Here's a summary of the player's ${propertiesListString}/etc:
 
-Here's a summary of the player's ${propertiesListString}/etc:
+  ---
+  ${existingSummaryText}
+  ---
+  
+  Update the summary based on this latest development:
 
----
-${existingSummaryText}
----
-
-Update the summary based on this latest development:
-
----
-${updatedMessage.content}
----
-
-If the player's data hasn't changed or if an invalid action was rejected, reply with the same summary unchanged.
-
-Reply only with dot points for the properties below, no extra text.
-
-**Player Character Details:**
-${propertiesPromptLines}
-`;
+  ---
+  ${updatedMessage.content}
+  ---
+  
+  If the player's data hasn't changed or if an invalid action was rejected, reply with the same summary unchanged.
+  
+  Reply only with dot points for the properties below, no extra text.
+  
+  **Player Character Details:**
+  ${propertiesPromptLines}
+  `;
 
   let response = await oc.getInstructCompletion({
     instruction:
@@ -410,110 +411,6 @@ async function splitIntoNamedMessages({ messages, originalMessage, updatedMessag
   const resultMessages = Array.from(uniqueMessagesSet);
 
   return messageProcessing.createProcessingResult({ messages: resultMessages });
-}
-
-// User command handler segment
-async function onUserCommand({ messages, originalMessage, updatedMessage }) {
-  debug.log("onUserCommand");
-  if (!originalMessage) {
-    return messageProcessing.createProcessingResult({ messages });
-  }
-
-  let content = originalMessage.content.trim();
-
-  if (content.startsWith("/stats")) {
-    oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/stats"));
-    ui.showStatsScreen();
-    return messageProcessing.createProcessingResult({ messages, stop: true });
-  }
-
-  if (content.startsWith("/resetSession")) {
-    delete threadData.contextSummary;
-    ui.refresh();
-    oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/resetSession"));
-    debug.log("Session reset by /resetSession command");
-    return messageProcessing.createProcessingResult({ messages, stop: true });
-  }
-
-  if (content.startsWith("/clearAll")) {
-    oc.thread.messages = [];
-    debug.log("All messages cleared by /clearAll command");
-    return messageProcessing.createProcessingResult({ messages, stop: true });
-  }
-
-  if (content.startsWith("/debug")) {
-    debugData.logDebugToMessages = true;
-
-    let isCurrentlyDebug = threadData.isDebug === true;
-
-    if (!isCurrentlyDebug) {
-
-      threadData.shortcutButtons = oc.thread.shortcutButtons || undefined;
-
-      threadData.isDebug = true;
-      let userCommands = ["/stats", "/resetSession", "/clearAll", "/debug"];
-      oc.thread.shortcutButtons = userCommands.map(cmd => ({
-        autoSend: true,
-        insertionType: "replace",
-        message: cmd,
-        name: cmd.substring(1),
-        clearAfterSend: true,
-        type: "message",
-      }));
-      oc.thread.messages.forEach(msg => {
-        const originalSet = new Set([
-          ...(Array.isArray(msg.customData?.hiddenFrom) ? msg.customData.hiddenFrom : []),
-          ...(Array.isArray(msg.hiddenFrom) ? msg.hiddenFrom : []),
-        ]);
-        if (originalSet.has("user")) {
-          msg.hiddenFrom = [...originalSet].filter(h => h !== "user");
-          if (!msg.customData) msg.customData = {};
-          msg.customData.hiddenFrom = [...originalSet];
-          msg.customData.debugShown = true;
-        } else {
-          if (!msg.customData?.hiddenFrom) {
-            msg.customData = msg.customData || {};
-            msg.customData.hiddenFrom = [...originalSet];
-          }
-        }
-      });
-
-      debug.log("Debug mode enabled");
-    } else {
-      threadData.isDebug = false;
-
-      oc.thread.shortcutButtons = threadData.shortcutButtons || undefined;
-      delete threadData.shortcutButtons;
-
-      oc.thread.messages.forEach(msg => {
-        if (msg.customData?.debugShown === true) {
-          const originalHidden = Array.isArray(msg.customData.hiddenFrom)
-            ? msg.customData.hiddenFrom
-            : (Array.isArray(msg.hiddenFrom) ? msg.hiddenFrom : []);
-          msg.hiddenFrom = originalHidden;
-          delete msg.customData.debugShown;
-        }
-      });
-
-      oc.thread.messages = oc.thread.messages.filter(
-        m => !(m.customData?.debug === true)
-      );
-
-      debug.log("Debug mode disabled");
-    }
-
-    const isDebug = Boolean(threadData.isDebug);
-    debugData.logDebugToMessages = isDebug;
-    debugData.isHideFromUser = !isDebug;
-
-    oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/debug"));
-
-    ui.refresh();
-
-    return messageProcessing.createProcessingResult({ messages, stop: true });
-  }
-
-  return messageProcessing.createProcessingResult({ messages });
 }
 
 // Event hook segment
