@@ -1,45 +1,88 @@
 const repoPath = oc.thread.customData.repoPath;
 
-let debug, messageProcessing, userProcessing, ui, globals;
-let failedModules = [];
-
-try {
-  debug = await import(`${repoPath}/debug/debug.js`);
-  if (!debug) failedModules.push('debug');
-} catch (e) {
-  failedModules.push('debug: ' + e.message);
+async function getDebug() {
+  try {
+    const debug = await import(`${repoPath}/debug/debug.js`);
+    if (!debug) throw new Error("missing");
+    return { debug };
+  } catch (e) {
+    return { error: e.message };
+  }
 }
 
-try {
-  messageProcessing = await import(`${repoPath}/processing/messageProcessing.js`);
-  if (!messageProcessing) failedModules.push('messageProcessing');
-} catch (e) {
-  failedModules.push('messageProcessing: ' + e.message);
+async function getMessageProcessing() {
+  try {
+    const messageProcessing = await import(`${repoPath}/processing/messageProcessing.js`);
+    if (!messageProcessing) throw new Error("missing");
+    return { messageProcessing };
+  } catch (e) {
+    return { error: e.message };
+  }
 }
 
-try {
-  userProcessing = await import(`${repoPath}/processing/userProcessing.js`);
-  if (!userProcessing) failedModules.push('userProcessing');
-} catch (e) {
-  failedModules.push('userProcessing: ' + e.message);
+async function getUserProcessing() {
+  try {
+    const userProcessing = await import(`${repoPath}/processing/userProcessing.js`);
+    if (!userProcessing) throw new Error("missing");
+    return { userProcessing };
+  } catch (e) {
+    return { error: e.message };
+  }
 }
 
-try {
-  ui = await import(`${repoPath}/ui/ui.js`);
-  if (!ui) failedModules.push('ui');
-} catch (e) {
-  failedModules.push('ui: ' + e.message);
+async function getUI() {
+  try {
+    const ui = await import(`${repoPath}/ui/ui.js`);
+    if (!ui) throw new Error("missing");
+    return { ui };
+  } catch (e) {
+    return { error: e.message };
+  }
 }
 
-try {
-  globals = await import(`${repoPath}/globals.js`);
-  if (!globals) failedModules.push('globals');
-} catch (e) {
-  failedModules.push('globals: ' + e.message);
+async function getHtml() {
+  try {
+    const html = await import(`${repoPath}/ui/html.js`);
+    if (!html) throw new Error("missing");
+    return { html };
+  } catch (e) {
+    return { error: e.message };
+  }
 }
 
-if (failedModules.length > 0) {
-  throw new Error("Imports module failed to load required modules: " + failedModules.join(', ') + ".");
+async function getGlobals() {
+  try {
+    const globals = await import(`${repoPath}/globals.js`);
+    if (!globals) throw new Error("missing");
+    return { globals };
+  } catch (e) {
+    return { error: e.message };
+  }
 }
 
-export { debug, messageProcessing, userProcessing, ui, globals };
+// Main import function
+async function importMain() {
+  const debugImport = await getDebug();
+  const uiImport = await getUI();
+  const messageProcessingImport = await getMessageProcessing();
+  const globalsImport = await getGlobals();
+  const userProcessingImport = await getUserProcessing();
+
+  const errors = [];
+  if (debugImport.error) errors.push(debugImport.error);
+  if (uiImport.error) errors.push(uiImport.error);
+  if (messageProcessingImport.error) errors.push(messageProcessingImport.error);
+  if (globalsImport.error) errors.push(globalsImport.error);
+  if (userProcessingImport.error) errors.push(userProcessingImport.error);
+
+  return {
+    debug: debugImport.debug || null,
+    ui: uiImport.ui || null,
+    messageProcessing: messageProcessingImport.messageProcessing || null,
+    globals: globalsImport.globals || null,
+    userProcessing: userProcessingImport.userProcessing || null,
+    errors
+  };
+}
+
+export { getDebug, getMessageProcessing, getUserProcessing, getUI, getHtml, getGlobals, importMain };

@@ -1,43 +1,15 @@
 const repoPath = oc.thread.customData.repoPath;
 
-let debug, messageProcessing, ui, threadData, debugData;
-let failedModules = [];
-
+let debug, messageProcessing, ui, threadData, debugData, errors;
 try {
-  debug = await import(`${repoPath}/debug/debug.js`);
-  if (!debug) failedModules.push('debug');
-} catch (e) {
-  failedModules.push('debug: ' + e.message);
-}
-
-try {
-  messageProcessing = await import(`${repoPath}/processing/messageProcessing.js`);
-  if (!messageProcessing) failedModules.push('messageProcessing');
-} catch (e) {
-  failedModules.push('messageProcessing: ' + e.message);
-}
-
-try {
-  ui = await import(`${repoPath}/ui/ui.js`);
-  if (!ui) failedModules.push('ui');
-} catch (e) {
-  failedModules.push('ui: ' + e.message);
-}
-
-try {
-  const globals = await import(`${repoPath}/globals.js`);
-  if (!globals) {
-    failedModules.push('globals');
-  } else {
-    threadData = globals.threadData;
-    debugData = globals.debugData;
+  ({ debug, messageProcessing, ui, globals, errors } = await import(`${repoPath}/imports.js`).then(mod => mod.importMain()));
+  if (errors && errors.length > 0) {
+    throw new Error(errors.join(', '));
   }
-} catch (e) {
-  failedModules.push('globals: ' + e.message);
-}
-
-if (failedModules.length > 0) {
-  throw new Error("userProcessing module failed to load required modules: " + failedModules.join(', ') + ".");
+  threadData = globals.threadData;
+  debugData = globals.debugData;
+} catch (error) {
+  throw new Error("userProcessing failed to import: " + error.message);
 }
 
 // -- Main dispatcher --

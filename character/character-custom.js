@@ -4,27 +4,12 @@ await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/charact
 
 const repoPath = oc.thread.customData.repoPath;
 
-// Imports segment
-let imports, debug, messageProcessing, ui, globals, userProcessing;
+// Imports segment - now using direct destructuring from importMain
+let debug, messageProcessing, ui, globals, userProcessing, errors;
 try {
-  let failedModules = [];
-  imports = await import(`${repoPath}/imports.js`);
-  if (!imports) {
-    failedModules.push('imports');
-  } else {
-    debug = imports.debug;
-    messageProcessing = imports.messageProcessing;
-    ui = imports.ui;
-    globals = imports.globals;
-    userProcessing = await import(`${repoPath}/processing/userProcessing.js`);
-    if (!debug) failedModules.push('debug');
-    if (!messageProcessing) failedModules.push('messageProcessing');
-    if (!ui) failedModules.push('ui');
-    if (!globals) failedModules.push('globals');
-    if (!userProcessing) failedModules.push('userProcessing');
-  }
-  if (failedModules.length > 0) {
-    throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
+  ({ debug, messageProcessing, ui, globals, userProcessing, errors } = await import(`${repoPath}/imports.js`).then(mod => mod.importMain()));
+  if (errors && errors.length > 0) {
+    throw new Error("Failed to load required modules: " + errors.join(', ') + ".");
   }
 } catch (error) {
   oc.thread.messages.push({
@@ -34,6 +19,7 @@ try {
     expectsReply: false,
     hiddenFrom: ["ai"],
   });
+  throw new Error("Failed to load");
 }
 
 // Deconstruct globals after import
