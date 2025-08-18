@@ -1,6 +1,6 @@
 await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/versions.js').then(async ({ load }) => {
   await load("latest_preview");
-};
+});
 
 const repoPath = oc.thread.customData.repoPath;
 
@@ -275,7 +275,7 @@ ${visibleThreadMessages
   .map(m => (m.author === "ai" ? `[Game_Master]: ` : `[Player]: `) + m.content)
   .join("\n\n")}
 ---
-  
+
 Here's a summary of the player's ${propertiesListString}/etc:
 
 ---
