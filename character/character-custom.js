@@ -5,7 +5,7 @@ await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/charact
 const repoPath = oc.thread.customData.repoPath;
 
 // Imports segment
-let imports, debug, messageProcessing, ui, globals;
+let imports, debug, messageProcessing, ui, globals, userProcessing;
 try {
   let failedModules = [];
   imports = await import(`${repoPath}/imports.js`);
@@ -15,12 +15,13 @@ try {
     debug = imports.debug;
     messageProcessing = imports.messageProcessing;
     ui = imports.ui;
-
     globals = imports.globals;
+    userProcessing = await import(`${repoPath}/processing/userProcessing.js`);
     if (!debug) failedModules.push('debug');
     if (!messageProcessing) failedModules.push('messageProcessing');
     if (!ui) failedModules.push('ui');
     if (!globals) failedModules.push('globals');
+    if (!userProcessing) failedModules.push('userProcessing');
   }
   if (failedModules.length > 0) {
     throw new Error("Failed to load required modules: " + failedModules.join(', ') + ".");
@@ -53,7 +54,7 @@ Object.assign(config, {
     splitIntoNamedMessages,
   ],
   userProcessingOrder: [
-    onUserCommand,
+    userProcessing.onUserCommand,
   ],
 });
 
@@ -197,7 +198,7 @@ Strictly follow these instructions.
     if (hiddenFromSet.has("user")) {
       hiddenFromSet.delete("user");
       updatedMessage.customData = updatedMessage.customData || {};
-      let existingHidden = new Set(updatedMessage.customData.hiddenFrom || []);
+      let existingHidden = new Set(updatedMessage.customData?.hiddenFrom || []);
       existingHidden.add("user");
       updatedMessage.customData.hiddenFrom = [...existingHidden];
     }
@@ -410,110 +411,6 @@ async function splitIntoNamedMessages({ messages, originalMessage, updatedMessag
   const resultMessages = Array.from(uniqueMessagesSet);
 
   return messageProcessing.createProcessingResult({ messages: resultMessages });
-}
-
-// User command handler segment
-async function onUserCommand({ messages, originalMessage, updatedMessage }) {
-  debug.log("onUserCommand");
-  if (!originalMessage) {
-    return messageProcessing.createProcessingResult({ messages });
-  }
-
-  let content = originalMessage.content.trim();
-
-  if (content.startsWith("/stats")) {
-    oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/stats"));
-    ui.showStatsScreen();
-    return messageProcessing.createProcessingResult({ messages, stop: true });
-  }
-
-  if (content.startsWith("/resetSession")) {
-    delete threadData.contextSummary;
-    ui.refresh();
-    oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/resetSession"));
-    debug.log("Session reset by /resetSession command");
-    return messageProcessing.createProcessingResult({ messages, stop: true });
-  }
-
-  if (content.startsWith("/clearAll")) {
-    oc.thread.messages = [];
-    debug.log("All messages cleared by /clearAll command");
-    return messageProcessing.createProcessingResult({ messages, stop: true });
-  }
-
-  if (content.startsWith("/debug")) {
-    debugData.logDebugToMessages = true;
-
-    let isCurrentlyDebug = threadData.isDebug === true;
-
-    if (!isCurrentlyDebug) {
-
-      threadData.shortcutButtons = oc.thread.shortcutButtons || undefined;
-
-      threadData.isDebug = true;
-      let userCommands = ["/stats", "/resetSession", "/clearAll", "/debug"];
-      oc.thread.shortcutButtons = userCommands.map(cmd => ({
-        autoSend: true,
-        insertionType: "replace",
-        message: cmd,
-        name: cmd.substring(1),
-        clearAfterSend: true,
-        type: "message",
-      }));
-      oc.thread.messages.forEach(msg => {
-        const originalSet = new Set([
-          ...(Array.isArray(msg.customData?.hiddenFrom) ? msg.customData.hiddenFrom : []),
-          ...(Array.isArray(msg.hiddenFrom) ? msg.hiddenFrom : []),
-        ]);
-        if (originalSet.has("user")) {
-          msg.hiddenFrom = [...originalSet].filter(h => h !== "user");
-          if (!msg.customData) msg.customData = {};
-          msg.customData.hiddenFrom = [...originalSet];
-          msg.customData.debugShown = true;
-        } else {
-          if (!msg.customData?.hiddenFrom) {
-            msg.customData = msg.customData || {};
-            msg.customData.hiddenFrom = [...originalSet];
-          }
-        }
-      });
-
-      debug.log("Debug mode enabled");
-    } else {
-      threadData.isDebug = false;
-
-      oc.thread.shortcutButtons = threadData.shortcutButtons || undefined;
-      delete threadData.shortcutButtons;
-
-      oc.thread.messages.forEach(msg => {
-        if (msg.customData?.debugShown === true) {
-          const originalHidden = Array.isArray(msg.customData.hiddenFrom)
-            ? msg.customData.hiddenFrom
-            : (Array.isArray(msg.hiddenFrom) ? msg.hiddenFrom : []);
-          msg.hiddenFrom = originalHidden;
-          delete msg.customData.debugShown;
-        }
-      });
-
-      oc.thread.messages = oc.thread.messages.filter(
-        m => !(m.customData?.debug === true)
-      );
-
-      debug.log("Debug mode disabled");
-    }
-
-    const isDebug = Boolean(threadData.isDebug);
-    debugData.logDebugToMessages = isDebug;
-    debugData.isHideFromUser = !isDebug;
-
-    oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/debug"));
-
-    ui.refresh();
-
-    return messageProcessing.createProcessingResult({ messages, stop: true });
-  }
-
-  return messageProcessing.createProcessingResult({ messages });
 }
 
 // Event hook segment
