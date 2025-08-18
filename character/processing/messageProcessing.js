@@ -17,7 +17,7 @@ export function createProcessingResult({ messages, stop = false, updatedMessage 
 }
 
 export async function processMessages(ogMessage, processors) {
-  let messages = [ogMessage];
+  let messages = [];
   let updatedMessage = ogMessage;
 
   for (const processor of processors) {
