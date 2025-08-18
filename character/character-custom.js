@@ -1,6 +1,6 @@
 await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/character/versions.js').then(async ({ load }) => {
   await load("latest_preview");
-});
+};
 
 const repoPath = oc.thread.customData.repoPath;
 
@@ -275,7 +275,7 @@ ${visibleThreadMessages
   .map(m => (m.author === "ai" ? `[Game_Master]: ` : `[Player]: `) + m.content)
   .join("\n\n")}
 ---
-
+  
 Here's a summary of the player's ${propertiesListString}/etc:
 
 ---
@@ -448,7 +448,7 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
 
     if (!isCurrentlyDebug) {
 
-      threadData.shortcutsButtons = oc.thread.shortcutButtons || undefined;
+      threadData.shortcutButtons = oc.thread.shortcutButtons || undefined;
 
       threadData.isDebug = true;
       let userCommands = ["/stats", "/resetSession", "/clearAll", "/debug"];
@@ -482,8 +482,8 @@ async function onUserCommand({ messages, originalMessage, updatedMessage }) {
     } else {
       threadData.isDebug = false;
 
-      oc.thread.shortcutButtons = threadData.shortcutsButtons || undefined;
-      delete threadData.shortcutsButtons;
+      oc.thread.shortcutButtons = threadData.shortcutButtons || undefined;
+      delete threadData.shortcutButtons;
 
       oc.thread.messages.forEach(msg => {
         if (msg.customData?.debugShown === true) {
