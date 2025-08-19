@@ -5,9 +5,11 @@ await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/charact
 const repoPath = oc.thread.customData.repoPath;
 
 // Imports segment - now using direct destructuring from importMain
-let debug, messageProcessing, ui, globals, userProcessing, errors;
+let debug, messageProcessing, ui, globals, userProcessing, strings, errors;
 try {
-  ({ debug, messageProcessing, ui, globals, userProcessing, errors } = await import(`${repoPath}/imports.js`).then(mod => mod.importMain()));
+  ({ debug, messageProcessing, ui, globals, userProcessing, strings, errors } = await import(`${repoPath}/imports.js`).then(mod => ({
+    ...mod.importMain()
+  })));
   if (errors && errors.length > 0) {
     throw new Error("Failed to load required modules: " + errors.join(', ') + ".");
   }
@@ -29,10 +31,10 @@ const { threadData, windowData, debugData, session, config } = globals;
 Object.assign(config, {
   numMessagesInContext: 4, // Fixed number of recent messages for context
   propertiesToTrackMap: {
-    Inventory: "any items currently in the player's inventory",
-    Skills: "skills that the player has",
-    Location: "player's current location",
-    Actors: "names of people player is interacting with"
+    Inventory: strings.inventoryLabel,
+    Skills: strings.skillsLabel,
+    Location: strings.locationLabel,
+    Actors: strings.actorsLabel
   },
   aiProcessingOrder: [
     generateContextSummary,
@@ -233,12 +235,12 @@ async function generateContextSummary({ messages, originalMessage, updatedMessag
   let existingSummaryText;
   if (Object.keys(contextSummary).length) {
     existingSummaryText =
-      "**Player Character Details:**\n" +
+      `**${strings.statsTitle}:**\n` +
       Object.entries(contextSummary)
         .map(([key, value]) => `- ${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`)
         .join("\n");
   } else {
-    existingSummaryText = "**Player Character Details:**\n- No summary yet.";
+    existingSummaryText = `**${strings.statsTitle}:**\n- ${strings.statsEmpty}`;
   }
 
   const propertiesListString = Object.keys(config.propertiesToTrackMap)
@@ -279,7 +281,7 @@ If the player's data hasn't changed or if an invalid action was rejected, reply 
 
 Reply only with dot points for the properties below, no extra text.
 
-**Player Character Details:**
+**${strings.statsTitle}:**
 ${propertiesPromptLines}
 `;
 
@@ -287,7 +289,7 @@ ${propertiesPromptLines}
     instruction:
       `Your task is to keep track of the Player's ${propertiesListString}/etc. based on the messages of the Player and the Game Master.\n\n` +
       questionText,
-    startWith: `**Player Character Details:**\n - ${Object.keys(config.propertiesToTrackMap)[0]}:`,
+    startWith: `**${strings.statsTitle}:**\n - ${Object.keys(config.propertiesToTrackMap)[0]}:`,
     stopSequences: ["\n\n"],
   });
 
