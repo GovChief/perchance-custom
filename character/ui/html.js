@@ -1,11 +1,21 @@
-function mainPanel({ title = "Character custom", content = "" } = {}) {
+let strings;
+try {
+  ({ strings } = await import(oc.thread.customData.repoPath + "/imports.js").then(mod => mod.getStrings()));
+  if (!strings) {
+    throw new Error("Failed to load strings from imports.");
+  }
+} catch (error) {
+  throw new Error("html failed to import: " + error.message);
+}
+
+function mainPanel({ title = undefined, content = "" } = {}) {
   return `
     <div style="position: relative; width: 100%; height: 100%; font-family: sans-serif; display: flex; flex-direction: column;">
       <div style="flex: 0 0 auto; padding: 10px 20px; background: #333; color: white; font-weight: bold; font-size: 1.2em; display: flex; justify-content: space-between; align-items: center;">
-        <div id="contextSummaryTitle">${title}</div>
+        <div id="contextSummaryTitle">${title ?? (strings.mainPanelTitle ?? "Character custom")}</div>
         <button
           style="background: transparent; border: none; color: white; font-size: 1.2em; cursor: pointer;"
-          aria-label="Close Info Window"
+          aria-label="${strings.closeButtonAriaLabel ?? "Close Info Window"}"
           onclick="oc.window.hide()"
         >❌</button>
       </div>

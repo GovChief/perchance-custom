@@ -60,6 +60,16 @@ async function getGlobals() {
   }
 }
 
+async function getStrings() {
+  try {
+    const stringsModule = await import(`${repoPath}/strings/strings.js`);
+    if (!stringsModule) throw new Error("missing");
+    return { strings: stringsModule.strings, stringsModule: stringsModule };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 // Main import function
 async function importMain() {
   const debugImport = await getDebug();
@@ -67,6 +77,7 @@ async function importMain() {
   const messageProcessingImport = await getMessageProcessing();
   const globalsImport = await getGlobals();
   const userProcessingImport = await getUserProcessing();
+  const stringsImport = await getStrings();
 
   const errors = [];
   if (debugImport.error) errors.push(debugImport.error);
@@ -74,6 +85,7 @@ async function importMain() {
   if (messageProcessingImport.error) errors.push(messageProcessingImport.error);
   if (globalsImport.error) errors.push(globalsImport.error);
   if (userProcessingImport.error) errors.push(userProcessingImport.error);
+  if (stringsImport.error) errors.push(stringsImport.error);
 
   return {
     debug: debugImport.debug || null,
@@ -81,8 +93,9 @@ async function importMain() {
     messageProcessing: messageProcessingImport.messageProcessing || null,
     globals: globalsImport.globals || null,
     userProcessing: userProcessingImport.userProcessing || null,
+    strings: stringsImport.strings || null,
     errors
   };
 }
 
-export { getDebug, getMessageProcessing, getUserProcessing, getUI, getHtml, getGlobals, importMain };
+export { getDebug, getMessageProcessing, getUserProcessing, getUI, getHtml, getGlobals, getStrings, importMain };

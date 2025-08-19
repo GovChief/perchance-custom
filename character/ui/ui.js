@@ -1,8 +1,11 @@
 const repoPath = oc.thread.customData.repoPath;
 
-let html, debug, threadData, errors;
+let html, debug, threadData, strings, errors;
 try {
-  ({ html, debug, globals, errors } = await import(`${repoPath}/imports.js`).then(mod => mod.importMain()));
+  ({ html, debug, globals, strings, errors } = await import(`${repoPath}/imports.js`).then(mod => ({
+    ...mod.importMain(),
+    ...mod.getStrings(),
+  })));
   if (errors && errors.length > 0) {
     throw new Error(errors.join(', '));
   }
@@ -52,11 +55,11 @@ function updateStatsScreen() {
     Object.keys(threadData.contextSummary).length === 0
   ) {
     contentHTML = html.text({
-      title: "Nothing to show",
-      message: "Start playing to see information",
+      title: strings.statsEmpty,
+      message: strings.statsEmptyHint,
       align: "center"
     });
-    setPanelContent({ title: "Stats", content: contentHTML });
+    setPanelContent({ title: strings.statsTitle, content: contentHTML });
   } else {
     const summary = threadData.contextSummary;
     for (const [title, description] of Object.entries(summary)) {
@@ -65,7 +68,7 @@ function updateStatsScreen() {
         description
       });
     }
-    setPanelContent({ title: "Stats", content: contentHTML });
+    setPanelContent({ title: strings.statsTitle, content: contentHTML });
   }
 }
 

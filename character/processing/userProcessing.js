@@ -1,8 +1,11 @@
 const repoPath = oc.thread.customData.repoPath;
 
-let debug, messageProcessing, ui, threadData, debugData, errors;
+let debug, messageProcessing, ui, threadData, debugData, strings, errors;
 try {
-  ({ debug, messageProcessing, ui, globals, errors } = await import(`${repoPath}/imports.js`).then(mod => mod.importMain()));
+  ({ debug, messageProcessing, ui, globals, strings, errors } = await import(`${repoPath}/imports.js`).then(mod => ({
+    ...mod.importMain(),
+    ...mod.getStrings(),
+  })));
   if (errors && errors.length > 0) {
     throw new Error(errors.join(', '));
   }
@@ -23,10 +26,10 @@ function onCommand({ messages, originalMessage, updatedMessage }) {
   let content = originalMessage.content.trim();
 
   const commandHandlers = [
-    { match: "/stats", handler: handleStats },
-    { match: "/resetSession", handler: handleResetSession },
-    { match: "/clearAll", handler: handleClearAll },
-    { match: "/debug", handler: handleDebug }
+    { match: strings.commandStats, handler: handleStats },
+    { match: strings.commandResetSession, handler: handleResetSession },
+    { match: strings.commandClearAll, handler: handleClearAll },
+    { match: strings.commandDebug, handler: handleDebug }
   ];
 
   for (const { match, handler } of commandHandlers) {
@@ -42,7 +45,7 @@ function onCommand({ messages, originalMessage, updatedMessage }) {
 // -- Individual command handlers --
 
 function handleStats({ messages }) {
-  oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/stats"));
+  oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith(strings.commandStats));
   ui.showStatsScreen();
   return messageProcessing.createProcessingResult({ messages, stop: true });
 }
@@ -50,14 +53,14 @@ function handleStats({ messages }) {
 function handleResetSession({ messages }) {
   delete threadData.contextSummary;
   ui.refresh();
-  oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/resetSession"));
-  debug.log("Session reset by /resetSession command");
+  oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith(strings.commandResetSession));
+  debug.log("Session reset by " + strings.commandResetSession + " command");
   return messageProcessing.createProcessingResult({ messages, stop: true });
 }
 
 function handleClearAll({ messages }) {
   oc.thread.messages = [];
-  debug.log("All messages cleared by /clearAll command");
+  debug.log("All messages cleared by " + strings.commandClearAll + " command");
   return messageProcessing.createProcessingResult({ messages, stop: true });
 }
 
@@ -70,7 +73,12 @@ function handleDebug({ messages }) {
     threadData.shortcutButtons = oc.thread.shortcutButtons || undefined;
 
     threadData.isDebug = true;
-    let userCommands = ["/stats", "/resetSession", "/clearAll", "/debug"];
+    let userCommands = [
+      strings.commandStats,
+      strings.commandResetSession,
+      strings.commandClearAll,
+      strings.commandDebug
+    ];
     oc.thread.shortcutButtons = userCommands.map(cmd => ({
       autoSend: true,
       insertionType: "replace",
@@ -125,7 +133,7 @@ function handleDebug({ messages }) {
   debugData.logDebugToMessages = isDebug;
   debugData.isHideFromUser = !isDebug;
 
-  oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith("/debug"));
+  oc.thread.messages = oc.thread.messages.filter(m => !m.content.startsWith(strings.commandDebug));
 
   ui.refresh();
 
