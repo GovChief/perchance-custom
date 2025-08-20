@@ -4,5 +4,9 @@ export default {
   mainPanelTitle: "Character custom",
   closeButtonAriaLabel: "Close Info Window",
   statsEmpty: "Nothing to show",
-  statsEmptyHint: "Start playing to see information"
+  statsEmptyHint: "Start playing to see information",
+  commandStats: "/stats",
+  commandResetSession: "/resetSession",
+  commandClearAll: "/clearAll",
+  commandDebug: "/debug"
 };
