@@ -1,13 +1,17 @@
 const repoPath = oc.thread.customData.repoPath;
 
-let debug, errors;
+let debug, errors = [];
 try {
-  ({ debug, errors } = await import(`${repoPath}/imports.js`).then(mod => mod.importMain()));
-  if (errors && errors.length > 0) {
-    throw new Error(errors.join(', '));
-  }
+  const imports = await import(`${repoPath}/imports.js`);
+  const debugResult = await imports.getDebug();
+  if (debugResult.error) errors.push(`getDebug: ${debugResult.error}`);
+  debug = debugResult.debug;
 } catch (error) {
-  throw new Error("messageProcessing failed to import: " + error.message);
+  errors.push("Failed to import imports.js: " + error.message);
+}
+
+if (errors.length > 0) {
+  throw new Error("messageProcessing failed to import: " + errors.join("; "));
 }
 
 // Log the name of the function when it's called
