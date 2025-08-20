@@ -4,17 +4,42 @@ await import('https://cdn.jsdelivr.net/gh/GovChief/perchance-custom@main/charact
 
 const repoPath = oc.thread.customData.repoPath;
 
-// Imports segment - now using direct destructuring from importMain
+// Utility function for promise timeout
+async function withTimeout(promise, ms) {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`Operation timed out after ${ms}ms.`));
+    }, ms);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timeoutId);
+    return result;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
+}
+
+// Imports segment - now using direct destructuring from importMain, wrapped with timeout
 let debug, messageProcessing, ui, globals, userProcessing, errors;
 try {
-  ({ debug, messageProcessing, ui, globals, userProcessing, errors } = await import(`${repoPath}/imports.js`).then(mod => mod.importMain()));
+  const imports = await import(`${repoPath}/imports.js`);
+  const importResult = await withTimeout(imports.importMain(), 5000); // 5s timeout
+  ({ debug, messageProcessing, ui, globals, userProcessing, errors } = importResult);
   if (errors && errors.length > 0) {
     throw new Error("Failed to load required modules: " + errors.join(', ') + ".");
   }
 } catch (error) {
+  let message = "Failed to initialise imports: " + error.message;
+  if (error.message && error.message.startsWith("Operation timed out")) {
+    message += "\nThis error is likely caused by circular dependencies in imports.";
+  }
   oc.thread.messages.push({
     author: "FAILED INIT",
-    content: "Failed to initialise imports: " + error.message,
+    content: message,
     customData: { debug: true },
     expectsReply: false,
     hiddenFrom: ["ai"],
