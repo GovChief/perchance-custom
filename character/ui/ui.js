@@ -1,17 +1,34 @@
 const repoPath = oc.thread.customData.repoPath;
 
-let html, debug, threadData, strings, errors;
+let html, debug, threadData, strings, errors = [];
 try {
-  ({ html, debug, globals, strings, errors } = await import(`${repoPath}/imports.js`).then(mod => ({
-    ...mod.importMain(),
-    ...mod.getStrings(),
-  })));
-  if (errors && errors.length > 0) {
-    throw new Error(errors.join(', '));
-  }
-  threadData = globals.threadData;
+  const imports = await import(`${repoPath}/imports.js`);
+
+  // Import html
+  const htmlResult = await imports.getHtml();
+  if (htmlResult.error) errors.push(`getHtml: ${htmlResult.error}`);
+  html = htmlResult.html;
+
+  // Import debug
+  const debugResult = await imports.getDebug();
+  if (debugResult.error) errors.push(`getDebug: ${debugResult.error}`);
+  debug = debugResult.debug;
+
+  // Import globals
+  const globalsResult = await imports.getGlobals();
+  if (globalsResult.error) errors.push(`getGlobals: ${globalsResult.error}`);
+  threadData = globalsResult.globals?.threadData;
+
+  // Import strings
+  const stringsResult = await imports.getStrings();
+  if (stringsResult.error) errors.push(`getStrings: ${stringsResult.error}`);
+  strings = stringsResult.strings;
 } catch (error) {
-  throw new Error("ui failed to import: " + error.message);
+  errors.push("Failed to import imports.js: " + error.message);
+}
+
+if (errors.length > 0) {
+  throw new Error("ui failed to import: " + errors.join("; "));
 }
 
 const statsScreen = "statsScreen";
@@ -46,7 +63,7 @@ function showStatsScreen() {
 
 function updateStatsScreen() {
   // Only update if statsScreen is the last in backstack
-  if (backstack.length === 0 || backstack[backstack.length - 1] !== statsScreen) return;
+  if (backstack.length === 0 || backstack.length - 1 !== statsScreen) return;
 
   let contentHTML = "";
 
