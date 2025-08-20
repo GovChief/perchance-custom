@@ -63,7 +63,7 @@ function showStatsScreen() {
 
 function updateStatsScreen() {
   // Only update if statsScreen is the last in backstack
-  if (backstack.length === 0 || backstack.length - 1 !== statsScreen) return;
+  if (backstack.length === 0 || backstack[backstack.length - 1] !== statsScreen) return;
 
   let contentHTML = "";
 
