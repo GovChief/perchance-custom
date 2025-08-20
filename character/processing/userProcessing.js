@@ -1,18 +1,40 @@
 const repoPath = oc.thread.customData.repoPath;
 
-let debug, messageProcessing, ui, threadData, debugData, strings, errors;
+let debug, messageProcessing, ui, threadData, debugData, strings, errors = [];
 try {
-  ({ debug, messageProcessing, ui, globals, strings, errors } = await import(`${repoPath}/imports.js`).then(mod => ({
-    ...mod.importMain(),
-    ...mod.getStrings(),
-  })));
-  if (errors && errors.length > 0) {
-    throw new Error(errors.join(', '));
-  }
-  threadData = globals.threadData;
-  debugData = globals.debugData;
+  const imports = await import(`${repoPath}/imports.js`);
+
+  // Import debug
+  const debugResult = await imports.getDebug();
+  if (debugResult.error) errors.push(`getDebug: ${debugResult.error}`);
+  debug = debugResult.debug;
+
+  // Import messageProcessing
+  const messageProcessingResult = await imports.getMessageProcessing();
+  if (messageProcessingResult.error) errors.push(`getMessageProcessing: ${messageProcessingResult.error}`);
+  messageProcessing = messageProcessingResult.messageProcessing;
+
+  // Import ui
+  const uiResult = await imports.getUI();
+  if (uiResult.error) errors.push(`getUI: ${uiResult.error}`);
+  ui = uiResult.ui;
+
+  // Import globals
+  const globalsResult = await imports.getGlobals();
+  if (globalsResult.error) errors.push(`getGlobals: ${globalsResult.error}`);
+  threadData = globalsResult.globals?.threadData;
+  debugData = globalsResult.globals?.debugData;
+
+  // Import strings
+  const stringsResult = await imports.getStrings();
+  if (stringsResult.error) errors.push(`getStrings: ${stringsResult.error}`);
+  strings = stringsResult.strings;
 } catch (error) {
-  throw new Error("userProcessing failed to import: " + error.message);
+  errors.push("Failed to import imports.js: " + error.message);
+}
+
+if (errors.length > 0) {
+  throw new Error("userProcessing failed to import: " + errors.join("; "));
 }
 
 // -- Main dispatcher --
