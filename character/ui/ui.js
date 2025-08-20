@@ -1,54 +1,92 @@
-let strings, errors = [];
+const repoPath = oc.thread.customData.repoPath;
+
+let html, debug, threadData, strings, errors = [];
 try {
-  const imports = await import(oc.thread.customData.repoPath + "/imports.js");
+  const imports = await import(`${repoPath}/imports.js`);
+
+  // Import html
+  const htmlResult = await imports.getHtml();
+  if (htmlResult.error) errors.push(`getHtml: ${htmlResult.error}`);
+  html = htmlResult.html;
+
+  // Import debug
+  const debugResult = await imports.getDebug();
+  if (debugResult.error) errors.push(`getDebug: ${debugResult.error}`);
+  debug = debugResult.debug;
+
+  // Import globals
+  const globalsResult = await imports.getGlobals();
+  if (globalsResult.error) errors.push(`getGlobals: ${globalsResult.error}`);
+  threadData = globalsResult.globals?.threadData;
+
+  // Import strings
   const stringsResult = await imports.getStrings();
   if (stringsResult.error) errors.push(`getStrings: ${stringsResult.error}`);
   strings = stringsResult.strings;
-  if (!strings) {
-    errors.push("Failed to load strings from imports.");
-  }
 } catch (error) {
   errors.push("Failed to import imports.js: " + error.message);
 }
 
 if (errors.length > 0) {
-  throw new Error("html failed to import: " + errors.join("; "));
+  throw new Error("ui failed to import: " + errors.join("; "));
 }
 
-function mainPanel({ title = undefined, content = "" } = {}) {
-  return `
-    <div style="position: relative; width: 100%; height: 100%; font-family: sans-serif; display: flex; flex-direction: column;">
-      <div style="flex: 0 0 auto; padding: 10px 20px; background: #333; color: white; font-weight: bold; font-size: 1.2em; display: flex; justify-content: space-between; align-items: center;">
-        <div id="contextSummaryTitle">${title ?? (strings.mainPanelTitle ?? "Character custom")}</div>
-        <button
-          style="background: transparent; border: none; color: white; font-size: 1.2em; cursor: pointer;"
-          aria-label="${strings.closeButtonAriaLabel ?? "Close Info Window"}"
-          onclick="oc.window.hide()"
-        >❌</button>
-      </div>
-      <div id="contextSummaryContent" style="flex: 1 1 auto; padding: 20px; overflow-y: auto;">
-        ${content}
-      </div>
-    </div>
-  `;
+const statsScreen = "statsScreen";
+const backstack = [];
+
+function setPanelContent({ title, content }) {
+  document.body.innerHTML = html.mainPanel({
+    title,
+    content
+  });
 }
 
-function text({ title = undefined, message, align = "left" } = {}) {
-  return `
-    <div style="margin-top: 20px; text-align: ${align};">
-      ${title ? `<div style="font-size: 1.3em; color: #222; font-weight: bold; margin-bottom: 8px;">${title}</div>` : ""}
-      <div style="font-size: 1.1em; color: #666;">${message}</div>
-    </div>
-  `;
+function showPanel() {
+  oc.window.show();
+  refresh();
 }
 
-function textBox({ title = undefined, description } = {}) {
-  return `
-    <div class="property-item" style="margin-bottom: 12px;">
-      ${title ? `<h3 style="margin: 0 0 4px 0; font-weight: bold;">${title}</h3>` : ''}
-      <div style="border: 1px solid black; padding: 6px 10px; border-radius: 3px; white-space: pre-wrap;">${description || '(none)'}</div>
-    </div>
-  `;
+function refresh() {
+  if (backstack.length === 0) return;
+  const currentScreen = backstack[backstack.length - 1];
+  if (currentScreen === statsScreen) {
+    updateStatsScreen();
+  }
+  // Add additional screen tags and their corresponding update functions here as needed
 }
 
-export { mainPanel, text, textBox };
+function showStatsScreen() {
+  debug.log("showStatsScreen");
+  backstack.push(statsScreen);
+  showPanel();
+}
+
+function updateStatsScreen() {
+  // Only update if statsScreen is the last in backstack
+  if (backstack.length === 0 || backstack.length - 1 !== statsScreen) return;
+
+  let contentHTML = "";
+
+  if (
+    !threadData.contextSummary ||
+    Object.keys(threadData.contextSummary).length === 0
+  ) {
+    contentHTML = html.text({
+      title: strings.statsEmpty,
+      message: strings.statsEmptyHint,
+      align: "center"
+    });
+    setPanelContent({ title: strings.statsTitle, content: contentHTML });
+  } else {
+    const summary = threadData.contextSummary;
+    for (const [title, description] of Object.entries(summary)) {
+      contentHTML += html.textBox({
+        title,
+        description
+      });
+    }
+    setPanelContent({ title: strings.statsTitle, content: contentHTML });
+  }
+}
+
+export { showPanel, refresh, showStatsScreen };
