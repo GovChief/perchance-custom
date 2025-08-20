@@ -1,14 +1,17 @@
 const repoPath = oc.thread.customData.repoPath;
 
-let debugData, errors;
+let debugData, errors = [];
 try {
-  ({ globals, errors } = await import(`${repoPath}/imports.js`).then(mod => mod.importMain()));
-  if (errors && errors.length > 0) {
-    throw new Error(errors.join(', '));
-  }
-  debugData = globals.debugData;
+  const imports = await import(`${repoPath}/imports.js`);
+  const globalsResult = await imports.getGlobals();
+  if (globalsResult.error) errors.push(`getGlobals: ${globalsResult.error}`);
+  debugData = globalsResult.globals?.debugData;
 } catch (error) {
-  throw new Error("debug failed to import: " + error.message);
+  errors.push("Failed to import imports.js: " + error.message);
+}
+
+if (errors.length > 0) {
+  throw new Error("debug failed to import: " + errors.join("; "));
 }
 
 function log(...args) {
