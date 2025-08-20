@@ -1,11 +1,18 @@
-let strings;
+let strings, errors = [];
 try {
-  ({ strings } = await import(oc.thread.customData.repoPath + "/imports.js").then(mod => mod.getStrings()));
+  const imports = await import(oc.thread.customData.repoPath + "/imports.js");
+  const stringsResult = await imports.getStrings();
+  if (stringsResult.error) errors.push(`getStrings: ${stringsResult.error}`);
+  strings = stringsResult.strings;
   if (!strings) {
-    throw new Error("Failed to load strings from imports.");
+    errors.push("Failed to load strings from imports.");
   }
 } catch (error) {
-  throw new Error("html failed to import: " + error.message);
+  errors.push("Failed to import imports.js: " + error.message);
+}
+
+if (errors.length > 0) {
+  throw new Error("html failed to import: " + errors.join("; "));
 }
 
 function mainPanel({ title = undefined, content = "" } = {}) {
