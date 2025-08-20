@@ -65,7 +65,7 @@ Object.assign(config, {
     splitIntoNamedMessages,
   ],
   userProcessingOrder: [
-    userProcessing.onUserCommand,
+    userProcessing.onCommand,
   ],
 });
 
