@@ -30,6 +30,16 @@ async function getUserProcessing() {
   }
 }
 
+async function getAIProcessing() {
+  try {
+    const aiProcessing = await import(`${repoPath}/processing/aiProcessing.js`);
+    if (!aiProcessing) throw new Error("missing");
+    return { aiProcessing };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 async function getUI() {
   try {
     const ui = await import(`${repoPath}/ui/ui.js`);
@@ -75,6 +85,7 @@ async function importMain() {
   const debugImport = await getDebug();
   const uiImport = await getUI();
   const messageProcessingImport = await getMessageProcessing();
+  const aiProcessingImport = await getAIProcessing();
   const globalsImport = await getGlobals();
   const userProcessingImport = await getUserProcessing();
   const stringsImport = await getStrings();
@@ -83,6 +94,7 @@ async function importMain() {
   if (debugImport.error) errors.push(debugImport.error);
   if (uiImport.error) errors.push(uiImport.error);
   if (messageProcessingImport.error) errors.push(messageProcessingImport.error);
+  if (aiProcessingImport.error) errors.push(aiProcessingImport.error);
   if (globalsImport.error) errors.push(globalsImport.error);
   if (userProcessingImport.error) errors.push(userProcessingImport.error);
   if (stringsImport.error) errors.push(stringsImport.error);
@@ -91,6 +103,7 @@ async function importMain() {
     debug: debugImport.debug || null,
     ui: uiImport.ui || null,
     messageProcessing: messageProcessingImport.messageProcessing || null,
+    aiProcessing: aiProcessingImport.aiProcessing || null,
     globals: globalsImport.globals || null,
     userProcessing: userProcessingImport.userProcessing || null,
     strings: stringsImport.strings || null,
@@ -98,4 +111,4 @@ async function importMain() {
   };
 }
 
-export { getDebug, getMessageProcessing, getUserProcessing, getUI, getHtml, getGlobals, getStrings, importMain };
+export { getDebug, getMessageProcessing, getUserProcessing, getAIProcessing, getUI, getHtml, getGlobals, getStrings, importMain };
